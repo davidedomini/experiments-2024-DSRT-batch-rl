@@ -1,5 +1,5 @@
 plugins {
-    id("com.gradle.enterprise") version "3.17.4"
+    id("com.gradle.develocity") version "3.17.2"
     id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
 }
 
@@ -11,4 +11,4 @@ develocity {
     }
 }
 
-rootProject.name = "alchemist-experiments-bootstrap"
+rootProject.name = "experiments-2024-DSRT-batch-reinforcement-learning"

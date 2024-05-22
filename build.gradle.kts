@@ -1,9 +1,13 @@
+import org.apache.tools.ant.taskdefs.condition.Os
 import org.gradle.configurationcache.extensions.capitalized
+import org.jetbrains.kotlin.util.collectionUtils.listOfNonEmptyScopes
 import java.awt.GraphicsEnvironment
 import java.io.ByteArrayOutputStream
+import java.nio.file.Files
 
 plugins {
     application
+    scala
     alias(libs.plugins.gitSemVer)
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.qa)
@@ -13,16 +17,6 @@ plugins {
 
 repositories {
     mavenCentral()
-}
-/*
- * Only required if you plan to use Protelis, remove otherwise
- */
-sourceSets {
-    main {
-        resources {
-            srcDir("src/main/protelis")
-        }
-    }
 }
 
 val usesJvm: Int = File(File(projectDir, "docker/sim"), "Dockerfile")
@@ -40,9 +34,19 @@ multiJvm {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation(libs.bundles.alchemist.protelis)
+    implementation(libs.bundles.alchemist)
+    implementation(libs.scalapy)
+    implementation(libs.scala.csv)
     if (!GraphicsEnvironment.isHeadless()) {
         implementation("it.unibo.alchemist:alchemist-swingui:${libs.versions.alchemist.get()}")
+    }
+}
+
+develocity {
+    buildScan {
+        termsOfUseUrl = "https://gradle.com/terms-of-service"
+        termsOfUseAgree = "yes"
+        publishing.onlyIf { it.buildResult.failures.isNotEmpty() }
     }
 }
 
@@ -77,6 +81,52 @@ val runAllBatch by tasks.register<DefaultTask>("runAllBatch") {
     group = alchemistGroup
     description = "Launches all experiments"
 }
+
+val pythonVirtualEnvName = "env"
+
+val createVirtualEnv by tasks.register<Exec>("createVirtualEnv") {
+    group = alchemistGroup
+    description = "Creates a virtual environment for Python"
+    commandLine("python3", "-m", "venv", pythonVirtualEnvName)
+}
+
+val createPyTorchNetworkFolder by tasks.register<Exec>("createPyTorchNetworkFolder") {
+    group = alchemistGroup
+    description = "Creates a folder for PyTorch networks"
+    commandLine("mkdir", "-p", "networks")
+}
+
+val installPythonDependencies by tasks.register<Exec>("installPythonDependencies") {
+    group = alchemistGroup
+    description = "Installs Python dependencies"
+    dependsOn(createVirtualEnv, createPyTorchNetworkFolder)
+    when (Os.isFamily(Os.FAMILY_WINDOWS)) {
+        true -> commandLine("$pythonVirtualEnvName\\Scripts\\pip", "install", "-r", "requirements.txt")
+        false -> commandLine("$pythonVirtualEnvName/bin/pip", "install", "-r", "requirements.txt")
+    }
+}
+
+val buildCustomDependency by tasks.register<Exec>("buildCustomDependency") {
+    group = alchemistGroup
+    description = "Builds custom Python dependencies"
+    dependsOn(installPythonDependencies)
+    workingDir("python")
+    when (Os.isFamily(Os.FAMILY_WINDOWS)) {
+        true -> commandLine("$pythonVirtualEnvName\\Scripts\\python", "setup.py", "sdist", "bdist_wheel")
+        false -> commandLine("../$pythonVirtualEnvName/bin/python", "setup.py", "sdist", "bdist_wheel")
+    }
+}
+
+val installCustomDependency by tasks.register<Exec>("installCustomDependency") {
+    group = alchemistGroup
+    description = "Installs custom Python dependencies"
+    dependsOn(buildCustomDependency)
+    when (Os.isFamily(Os.FAMILY_WINDOWS)) {
+        true -> commandLine("$pythonVirtualEnvName\\Scripts\\pip", "install", "-e", "python")
+        false -> commandLine("$pythonVirtualEnvName/bin/pip", "install", "-e", "python")
+    }
+}
+
 /*
  * Scan the folder with the simulation files, and create a task for each one of them.
  */
@@ -90,6 +140,14 @@ File(rootProject.rootDir.path + "/src/main/yaml").listFiles()
             mainClass.set("it.unibo.alchemist.Alchemist")
             classpath = sourceSets["main"].runtimeClasspath
             args("run", it.absolutePath)
+            jvmArgs(
+                when (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                    true -> "-Dscalapy.python.programname=$pythonVirtualEnvName\\Scripts\\python"
+                    false -> "-Dscalapy.python.programname=$pythonVirtualEnvName/bin/python"
+                },
+                "-Xmx${1024}m"
+                //"-Dscalapy.python.library=python3.10"
+            )
             javaLauncher.set(
                 javaToolchains.launcherFor {
                     languageVersion.set(JavaLanguageVersion.of(usesJvm))
@@ -100,12 +158,25 @@ File(rootProject.rootDir.path + "/src/main/yaml").listFiles()
             } else {
                 this.additionalConfiguration()
             }
+            dependsOn(installCustomDependency)
         }
         val capitalizedName = it.nameWithoutExtension.capitalized()
         val graphic by basetask("run${capitalizedName}Graphic") {
+            val monitor = if (capitalizedName.lowercase().contains("baseline")) "Centralized" else "Distributed"
+            val defaultParameters =
+                if (capitalizedName.lowercase().contains("baseline"))
+                    "[0.0, 0, 0, false]"
+                else
+                    "[0.0, 0, 0, 0, false, 0.0]"
             args(
                 "--override",
-                "monitors: { type: SwingGUI, parameters: { graphics: effects/${it.nameWithoutExtension}.json } }",
+                """
+                   monitors: 
+                        - type: SwingGUI
+                          parameters: { graphics: effects/${it.nameWithoutExtension}.json }
+                        - type: it.unibo.alchemist.model.monitors.${monitor}TestSetEvaluation
+                          parameters: $defaultParameters
+                """.trimIndent(),
                 "--override",
                 "launcher: { parameters: { batch: [], autoStart: false } }",
             )
@@ -115,17 +186,24 @@ File(rootProject.rootDir.path + "/src/main/yaml").listFiles()
             description = "Launches batch experiments for $capitalizedName"
             maxHeapSize = "${minOf(heap.toInt(), Runtime.getRuntime().availableProcessors() * taskSize)}m"
             File("data").mkdirs()
+            val batch = if(capitalizedName.contains("Baseline")) {
+                "seed, areas"
+            } else if (capitalizedName.contains("Movement")) {
+                "seed"
+            } else {
+                "seed, areas, lossThreshold"
+            }
             args("--override",
                 """
-                    launcher: {
-                        parameters: {
-                            batch: [ seed, spacing, error ],
-                            showProgress: true,
-                            autoStart: true,
-                            parallelism: $threadCount,
-                        }
+                launcher: {
+                    parameters: {
+                        batch: [ $batch ],
+                        showProgress: true,
+                        autoStart: true,
+                        parallelism: 1,
                     }
-                """.trimIndent())
+                }
+            """.trimIndent())
         }
         runAllBatch.dependsOn(batch)
     }

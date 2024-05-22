@@ -17,9 +17,6 @@ seeds:
   scenario: *seed
   simulation: *seed
 
-launcher:
-  parameters:
-    batch: [seed, spacing, error]
 
 network-model:
   type: ConnectWithinDistance
