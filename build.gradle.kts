@@ -37,6 +37,8 @@ dependencies {
     implementation(libs.bundles.alchemist)
     implementation(libs.scalapy)
     implementation(libs.scala.csv)
+    implementation(libs.guava)
+    implementation(libs.slf4j)
     if (!GraphicsEnvironment.isHeadless()) {
         implementation("it.unibo.alchemist:alchemist-swingui:${libs.versions.alchemist.get()}")
     }
@@ -186,24 +188,18 @@ File(rootProject.rootDir.path + "/src/main/yaml").listFiles()
             description = "Launches batch experiments for $capitalizedName"
             maxHeapSize = "${minOf(heap.toInt(), Runtime.getRuntime().availableProcessors() * taskSize)}m"
             File("data").mkdirs()
-            val batch = if(capitalizedName.contains("Baseline")) {
-                "seed, areas"
-            } else if (capitalizedName.contains("Movement")) {
-                "seed"
-            } else {
-                "seed, areas, lossThreshold"
-            }
-            args("--override",
+            /*args("--override",
                 """
                 launcher: {
                     parameters: {
-                        batch: [ $batch ],
+                        batch: [ seed, spacing ],
                         showProgress: true,
                         autoStart: true,
-                        parallelism: 1,
+                        showProgress: true,
+                        globalRounds: 40,
                     }
                 }
-            """.trimIndent())
+            """.trimIndent())*/
         }
         runAllBatch.dependsOn(batch)
     }

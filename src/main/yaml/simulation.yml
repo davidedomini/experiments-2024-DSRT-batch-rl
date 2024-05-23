@@ -17,6 +17,13 @@ seeds:
   scenario: *seed
   simulation: *seed
 
+launcher:
+  type: LearningLauncher
+  parameters:
+    batch: [seed, spacing, error]
+    autoStart: true
+    showProgress: true
+    globalRounds: 20
 
 network-model:
   type: ConnectWithinDistance
