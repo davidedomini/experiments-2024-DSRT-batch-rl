@@ -3,6 +3,8 @@ package it.unibo.alchemist.boundary.launchers
 import com.google.common.collect.Lists
 import it.unibo.alchemist.boundary.launchers.LearningLauncher.logger
 import it.unibo.alchemist.boundary.{Launcher, Loader, Variable}
+import it.unibo.alchemist.core.Simulation
+import it.unibo.alchemist.model.molecules.SimpleMolecule
 import it.unibo.alchemist.util.BugReporting
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -20,6 +22,7 @@ class LearningLauncher (
                        ) extends Launcher {
 
   private val parallelism: Int = Runtime.getRuntime.availableProcessors()
+  private val logger: Logger = LoggerFactory.getLogger(this.getClass.getName)
 
   override def launch(loader: Loader): Unit = {
     val instances = loader.getVariables
@@ -33,6 +36,7 @@ class LearningLauncher (
       prod.zipWithIndex.foreach {
         case (instance, index) =>
           val sim = loader.getWith[Any, Nothing](instance.asJava)
+          neuralNetworkInjection(sim)
           sim.play()
           sim.run()
           logger.info("Simulation with {} completed successfully", instance)
@@ -56,11 +60,16 @@ class LearningLauncher (
       .iterator().asScala.toList
       .asInstanceOf[List[mutable.Map[String, Serializable]]]
   }
-  
-}
 
-object LearningLauncher {
-
-  val logger: Logger = LoggerFactory.getLogger(this.getClass.getName)
+ private def neuralNetworkInjection(simulation: Simulation[Any, Nothing]): Unit = {
+   simulation
+     .getEnvironment
+     .getNodes
+     .iterator()
+     .asScala.toList
+     .foreach { node =>
+       node.setConcentration(new SimpleMolecule("Model"), 2) // TODO - set real model with scalapy
+     }
+ }
 
 }
