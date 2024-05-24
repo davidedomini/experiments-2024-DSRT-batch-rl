@@ -1,4 +1,4 @@
-incarnation: protelis
+incarnation: scafi
 
 variables:
   seed: &seed
@@ -30,14 +30,13 @@ network-model:
   parameters: [0.5]
 
 _gradient: &gradient
-  - time-distribution: 1
-    # Writing Protelis programs within a YAML file is a bad experience
-    # (some characters need escaping, no syntax highlight, no code suggestions...)
-    # We recommend using the Protelis Eclipse plugin to write your code, then
-    # Loading the code as a module within Alchemist
-    # In order to run this example, make sure that src/main/protelis is part of
-    # your classpath (the Gradle script is already properly configured).
-    program: org:protelis:tutorial:distanceTo
+  - time-distribution:
+      type: DiracComb
+      parameters: [0.1, 1]
+    type: Event
+    actions:
+      - type: RunScafiProgram
+        parameters: [it.unibo.scafi.Agent, 15.0]
   - program: send
 
 deployments:
@@ -52,26 +51,17 @@ deployments:
   programs: *gradient
 
 export:
-#  - type: MongoDBExporter
-#    parameters:
-#      uri: mongodb://localhost:27017
-#      dbName: simulation
-#    data:
-#      - time
-#      - molecule: "org:protelis:tutorial:distanceTo"
-#        aggregators: [mean, min, max]
-#        value-filter: onlyfinite
   - type: CSVExporter
     parameters:
-      fileNameRoot: simulation
-      interval: 1
-      exportPath: data
+      fileNameRoot: "experiment"
+      interval: 1.0
+      exportPath: "data"
     data:
       - time
-      - molecule: "org:protelis:tutorial:distanceTo"
-        aggregators: [mean, min, max]
-        value-filter: onlyfinite
+      - molecule: Counter
+        aggregators: [min, max, mean, variance]
+        value-filter: onlyFinite
 
 terminate:
   type: AfterTime
-  parameters: 150
+  parameters: 20
