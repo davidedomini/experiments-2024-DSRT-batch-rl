@@ -25,6 +25,10 @@ launcher:
     showProgress: true
     globalRounds: 20
 
+monitors:
+  - type: it.unibo.alchemist.model.monitors.JustClean
+    parameters: [*seed]
+
 network-model:
   type: ConnectWithinDistance
   parameters: [0.5]
