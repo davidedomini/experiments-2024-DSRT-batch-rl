@@ -5,6 +5,7 @@ import it.unibo.alchemist.boundary.{Launcher, Loader, Variable}
 import it.unibo.alchemist.core.Simulation
 import it.unibo.alchemist.model.molecules.SimpleMolecule
 import it.unibo.alchemist.util.BugReporting
+import it.unibo.interop.PythonModules.pythonUtils
 import org.slf4j.{Logger, LoggerFactory}
 import scala.jdk.CollectionConverters._
 import java.util.concurrent.{ConcurrentLinkedQueue, Executors, TimeUnit}
@@ -89,13 +90,14 @@ class LearningLauncher (
   }
 
   private def neuralNetworkInjection(simulation: Simulation[Any, Nothing]): Unit = {
+    val model = pythonUtils.load_neural_network()
     simulation
       .getEnvironment
       .getNodes
       .iterator()
       .asScala.toList
       .foreach { node =>
-         node.setConcentration(new SimpleMolecule("Model"), 2) // TODO - set real model with scalapy
+         node.setConcentration(new SimpleMolecule("Model"), model)
       }
   }
 
