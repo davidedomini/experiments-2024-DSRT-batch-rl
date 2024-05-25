@@ -40,6 +40,7 @@ class LearningLauncher (
           runSimulationAsync(sim, index, instance)
       }
       Await.ready(Future.sequence(futures), Duration.Inf)
+      // TODO - learning
     }
 
     executor.shutdown()
@@ -76,7 +77,9 @@ class LearningLauncher (
       logger.info("Simulation with {} completed successfully", instance)
     }
     future.onComplete {
-      case Success(_) => logger.info("Simulation {} of {} completed", index + 1, instance.size)
+      case Success(_) =>
+        // TODO - collect experience from agents
+        logger.info("Simulation {} of {} completed", index + 1, instance.size)
       case Failure(exception) =>
         logger.error(s"Failure for simulation with $instance", exception)
         errorQueue.add(exception)
