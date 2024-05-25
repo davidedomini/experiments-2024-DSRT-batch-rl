@@ -7,3 +7,6 @@ charts/
 data_summary_*
 timeprocessed
 data/
+python/dist/
+python/src/__pycache__/
+env/
