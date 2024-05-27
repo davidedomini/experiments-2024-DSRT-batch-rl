@@ -3,10 +3,13 @@ package it.unibo.alchemist.boundary.launchers
 import com.google.common.collect.Lists
 import it.unibo.alchemist.boundary.{Launcher, Loader, Variable}
 import it.unibo.alchemist.core.Simulation
+import it.unibo.alchemist.model.Node
+import it.unibo.alchemist.model.learning.ExperienceBuffer
 import it.unibo.alchemist.model.molecules.SimpleMolecule
 import it.unibo.alchemist.util.BugReporting
 import it.unibo.interop.PythonModules.pythonUtils
 import org.slf4j.{Logger, LoggerFactory}
+
 import scala.jdk.CollectionConverters._
 import java.util.concurrent.{ConcurrentLinkedQueue, Executors, TimeUnit}
 import scala.collection.mutable
@@ -27,7 +30,7 @@ class LearningLauncher (
   private val logger: Logger = LoggerFactory.getLogger(this.getClass.getName)
   private val errorQueue = new ConcurrentLinkedQueue[Throwable]()
   private val executor = Executors.newFixedThreadPool(parallelism)
-  private implicit val executionContext: ExecutionContextExecutor = ExecutionContext.fromExecutor(executor)
+  private implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(executor)
 
   override def launch(loader: Loader): Unit = {
     val instances = loader.getVariables
@@ -42,8 +45,15 @@ class LearningLauncher (
           neuralNetworkInjection(sim, seed)
           runSimulationAsync(sim, index, instance)
       }
-      Await.ready(Future.sequence(futures), Duration.Inf)
-      // TODO - learning
+      Await
+        .ready(Future.sequence(futures), Duration.Inf)
+        .onComplete {
+          case Success(simulations) => {
+            val nodesExperience = collectExperience(simulations)
+            // TODO - learning
+          }
+          case Failure(exception) => println(exception)
+        }
     }
 
     executor.shutdown()
@@ -71,16 +81,16 @@ class LearningLauncher (
     simulation: Simulation[Any, Nothing],
     index: Int,
     instance: mutable.Map[String, Serializable]
-  )(implicit executionContext: ExecutionContext): Future[Unit] = {
+  )(implicit executionContext: ExecutionContext): Future[Simulation[Any, Nothing]] = {
     val future = Future {
       simulation.play()
       simulation.run()
       simulation.getError.ifPresent { error => throw error }
       logger.info("Simulation with {} completed successfully", instance)
+      simulation
     }
     future.onComplete {
       case Success(_) =>
-        // TODO - collect experience from agents - maybe not here
         logger.info("Simulation {} of {} completed", index + 1, instance.size)
       case Failure(exception) =>
         logger.error(s"Failure for simulation with $instance", exception)
@@ -92,14 +102,23 @@ class LearningLauncher (
 
   private def neuralNetworkInjection(simulation: Simulation[Any, Nothing], seed: Double): Unit = {
     val model = pythonUtils.load_neural_network(seed)
-    simulation
-      .getEnvironment
-      .getNodes
-      .iterator()
-      .asScala.toList
+    nodes(simulation)
       .foreach { node =>
          node.setConcentration(new SimpleMolecule("Model"), model)
       }
+  }
+
+  private def collectExperience(simulations: List[Simulation[Any, Nothing]]): Seq[ExperienceBuffer] = {
+    simulations.flatMap { simulation =>
+      nodes(simulation)
+        .map { node =>
+          node.getConcentration(new SimpleMolecule("ExperienceBuffer")).asInstanceOf[ExperienceBuffer]
+        }
+    }
+  }
+
+  private def nodes(simulation: Simulation[Any, Nothing]): List[Node[Any]] = {
+    simulation.getEnvironment.getNodes.iterator().asScala.toList
   }
 
 }
