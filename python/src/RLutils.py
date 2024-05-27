@@ -16,5 +16,5 @@ class MLP(nn.Module):
 
 def load_neural_network(seed):
     torch.manual_seed(seed)
-    model = torch.zeros([2, 4], dtype=torch.int32) #MLP(20, 128, 10).state_dict()
+    model = MLP(20, 128, 10).state_dict()
     return model

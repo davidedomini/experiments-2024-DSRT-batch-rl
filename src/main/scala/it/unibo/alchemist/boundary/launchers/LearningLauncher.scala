@@ -38,6 +38,8 @@ class LearningLauncher (
       val futures = prod.zipWithIndex.map {
         case (instance, index) =>
           val sim = loader.getWith[Any, Nothing](instance.asJava)
+          val seed = instance("seed").asInstanceOf[Double]
+          neuralNetworkInjection(sim, seed)
           runSimulationAsync(sim, index, instance)
       }
       Await.ready(Future.sequence(futures), Duration.Inf)
@@ -71,15 +73,14 @@ class LearningLauncher (
     instance: mutable.Map[String, Serializable]
   )(implicit executionContext: ExecutionContext): Future[Unit] = {
     val future = Future {
-      neuralNetworkInjection(simulation)
       simulation.play()
       simulation.run()
-      simulation.getError.ifPresent { error => throw error}
+      simulation.getError.ifPresent { error => throw error }
       logger.info("Simulation with {} completed successfully", instance)
     }
     future.onComplete {
       case Success(_) =>
-        // TODO - collect experience from agents
+        // TODO - collect experience from agents - maybe not here
         logger.info("Simulation {} of {} completed", index + 1, instance.size)
       case Failure(exception) =>
         logger.error(s"Failure for simulation with $instance", exception)
@@ -89,8 +90,8 @@ class LearningLauncher (
     future
   }
 
-  private def neuralNetworkInjection(simulation: Simulation[Any, Nothing]): Unit = {
-    val model = pythonUtils.load_neural_network()
+  private def neuralNetworkInjection(simulation: Simulation[Any, Nothing], seed: Double): Unit = {
+    val model = pythonUtils.load_neural_network(seed)
     simulation
       .getEnvironment
       .getNodes
