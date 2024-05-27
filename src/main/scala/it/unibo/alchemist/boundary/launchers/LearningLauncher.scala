@@ -4,18 +4,16 @@ import com.google.common.collect.Lists
 import it.unibo.alchemist.boundary.{Launcher, Loader, Variable}
 import it.unibo.alchemist.core.Simulation
 import it.unibo.alchemist.model.Node
-import it.unibo.alchemist.model.learning.ExperienceBuffer
+import it.unibo.alchemist.model.learning.{ExperienceBuffer, Molecules}
 import it.unibo.alchemist.model.molecules.SimpleMolecule
 import it.unibo.alchemist.util.BugReporting
 import it.unibo.interop.PythonModules.pythonUtils
 import org.slf4j.{Logger, LoggerFactory}
-
 import scala.jdk.CollectionConverters._
 import java.util.concurrent.{ConcurrentLinkedQueue, Executors, TimeUnit}
 import scala.collection.mutable
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContextExecutor}
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Await}
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.util.{Failure, Success}
 
@@ -104,7 +102,7 @@ class LearningLauncher (
     val model = pythonUtils.load_neural_network(seed)
     nodes(simulation)
       .foreach { node =>
-         node.setConcentration(new SimpleMolecule("Model"), model)
+         node.setConcentration(new SimpleMolecule(Molecules.model), model)
       }
   }
 
@@ -112,7 +110,7 @@ class LearningLauncher (
     simulations.flatMap { simulation =>
       nodes(simulation)
         .map { node =>
-          node.getConcentration(new SimpleMolecule("ExperienceBuffer")).asInstanceOf[ExperienceBuffer]
+          node.getConcentration(new SimpleMolecule(Molecules.experience)).asInstanceOf[ExperienceBuffer]
         }
     }
   }
