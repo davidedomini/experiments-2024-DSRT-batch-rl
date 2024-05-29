@@ -24,6 +24,7 @@ launcher:
     autoStart: true
     showProgress: true
     globalRounds: 20
+    seedName: seed
 
 monitors:
   - type: it.unibo.alchemist.model.monitors.JustClean

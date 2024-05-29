@@ -21,7 +21,8 @@ class LearningLauncher (
                          val batch: java.util.ArrayList[String],
                          val autoStart: Boolean,
                          val showProgress: Boolean,
-                         val globalRounds: Int
+                         val globalRounds: Int,
+                         val seedName: String
                        ) extends Launcher {
 
   private val parallelism: Int = Runtime.getRuntime.availableProcessors()
@@ -39,7 +40,7 @@ class LearningLauncher (
       val futures = prod.zipWithIndex.map {
         case (instance, index) =>
           val sim = loader.getWith[Any, Nothing](instance.asJava)
-          val seed = instance("seed").asInstanceOf[Double]
+          val seed = instance(seedName).asInstanceOf[Double]
           neuralNetworkInjection(sim, seed)
           runSimulationAsync(sim, index, instance)
       }
