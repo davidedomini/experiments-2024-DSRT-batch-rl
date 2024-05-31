@@ -3,17 +3,21 @@ package it.unibo.alchemist.boundary.launchers
 import com.google.common.collect.Lists
 import it.unibo.alchemist.boundary.{Launcher, Loader, Variable}
 import it.unibo.alchemist.core.Simulation
+import it.unibo.interop.PythonModules._
 import it.unibo.alchemist.model.Node
 import it.unibo.alchemist.model.learning.{ExperienceBuffer, Molecules}
 import it.unibo.alchemist.model.molecules.SimpleMolecule
 import it.unibo.alchemist.util.BugReporting
 import it.unibo.interop.PythonModules.pythonUtils
+import me.shadaj.scalapy.py
+import me.shadaj.scalapy.py.{PyQuote, SeqConverters}
 import org.slf4j.{Logger, LoggerFactory}
+
 import scala.jdk.CollectionConverters._
 import java.util.concurrent.{ConcurrentLinkedQueue, Executors, TimeUnit}
 import scala.collection.mutable
 import scala.concurrent.duration.Duration
-import scala.concurrent.{ExecutionContext, Future, Await}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.util.{Failure, Success}
 
@@ -114,6 +118,15 @@ class LearningLauncher (
           node.getConcentration(new SimpleMolecule(Molecules.experience)).asInstanceOf[ExperienceBuffer]
         }
     }
+  }
+
+  private def toBatches(experienceBuffer: ExperienceBuffer): (py.Dynamic, py.Dynamic, py.Dynamic, py.Dynamic)= {
+    val encodedBuffer = experienceBuffer.getAll.map(_.encode)
+    val actualStateBatch = torch.Tensor(encodedBuffer.map(_._1.toPythonCopy).toPythonCopy)
+    val actionBatch = torch.Tensor(encodedBuffer.map(_._2).toPythonCopy)
+    val rewardBatch = torch.Tensor(encodedBuffer.map(_._3).toPythonCopy)
+    val nextStateBatch = torch.Tensor(encodedBuffer.map(_._4.toPythonCopy).toPythonCopy)
+    (actualStateBatch, actionBatch, rewardBatch, nextStateBatch)
   }
 
   private def nodes(simulation: Simulation[Any, Nothing]): List[Node[Any]] = {
