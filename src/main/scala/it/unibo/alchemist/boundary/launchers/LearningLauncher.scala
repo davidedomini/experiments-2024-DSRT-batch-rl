@@ -53,7 +53,7 @@ class LearningLauncher (
         .onComplete {
           case Success(simulations) => {
             val nodesExperience = collectExperience(simulations)
-            // TODO - learning
+            improvePolicy(nodesExperience)
           }
           case Failure(exception) => println(exception)
         }
@@ -118,6 +118,15 @@ class LearningLauncher (
           node.getConcentration(new SimpleMolecule(Molecules.experience)).asInstanceOf[ExperienceBuffer]
         }
     }
+  }
+
+  private def improvePolicy(nodesExperience: Seq[ExperienceBuffer]): Unit = {
+    nodesExperience
+      .map(toBatches)
+      .foreach { case (actualStateBatch, actionBatch, rewardBatch, nextStateBatch) =>
+        // TODO - implement improve policy in python
+        pythonUtils.improve_policy(actualStateBatch, actionBatch, rewardBatch, nextStateBatch)
+      }
   }
 
   private def toBatches(experienceBuffer: ExperienceBuffer): (py.Dynamic, py.Dynamic, py.Dynamic, py.Dynamic)= {
