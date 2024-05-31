@@ -104,6 +104,7 @@ class LearningLauncher (
   }
 
   private def neuralNetworkInjection(simulation: Simulation[Any, Nothing], seed: Double): Unit = {
+    // TODO - implement load nn such that loads the latest nn trained
     val model = pythonUtils.load_neural_network(seed)
     nodes(simulation)
       .foreach { node =>
