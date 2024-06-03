@@ -18,3 +18,14 @@ def load_neural_network(seed):
     torch.manual_seed(seed)
     model = MLP(20, 128, 10).state_dict()
     return model
+
+def improve_policy(actual_state_batch, action_batch, reward_batch, next_state_batch, seed):
+    action_model = ... # TODO - init
+    target_model = ... # TODO - init
+    gamma = 0.1 # TODO - check
+
+    target_new_state_q_values = target_model(next_state_batch)
+    predicted_state_q_values = action_model(actual_state_batch)
+    expected_values = (predicted_state_q_values * gamma) + reward_batch
+
+    # TODO - finish
