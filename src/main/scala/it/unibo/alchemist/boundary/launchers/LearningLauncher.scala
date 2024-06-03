@@ -52,8 +52,8 @@ class LearningLauncher (
         .ready(Future.sequence(futures), Duration.Inf)
         .onComplete {
           case Success(simulations) => {
-            val nodesExperience = collectExperience(simulations)
-            improvePolicy(nodesExperience)
+            val experience = collectExperience(simulations)
+            improvePolicy(experience)
           }
           case Failure(exception) => println(exception)
         }
@@ -121,8 +121,8 @@ class LearningLauncher (
     }
   }
 
-  private def improvePolicy(nodesExperience: Seq[ExperienceBuffer]): Unit = {
-    nodesExperience
+  private def improvePolicy(simulationsExperience: Seq[ExperienceBuffer]): Unit = {
+    simulationsExperience
       .map(toBatches)
       .foreach { case (actualStateBatch, actionBatch, rewardBatch, nextStateBatch) =>
         // TODO - implement improve policy in python
