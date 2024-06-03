@@ -5,7 +5,7 @@ import it.unibo.alchemist.boundary.{Launcher, Loader, Variable}
 import it.unibo.alchemist.core.Simulation
 import it.unibo.interop.PythonModules._
 import it.unibo.alchemist.model.Node
-import it.unibo.alchemist.model.learning.{ExperienceBuffer, Molecules}
+import it.unibo.alchemist.model.learning.{Experience, ExperienceBuffer, Molecules}
 import it.unibo.alchemist.model.molecules.SimpleMolecule
 import it.unibo.alchemist.util.BugReporting
 import it.unibo.interop.PythonModules.pythonUtils
@@ -26,7 +26,8 @@ class LearningLauncher (
                          val autoStart: Boolean,
                          val showProgress: Boolean,
                          val globalRounds: Int,
-                         val seedName: String
+                         val seedName: String,
+                         val miniBatchSize: Int
                        ) extends Launcher {
 
   private val parallelism: Int = Runtime.getRuntime.availableProcessors()
@@ -122,16 +123,19 @@ class LearningLauncher (
   }
 
   private def improvePolicy(simulationsExperience: Seq[ExperienceBuffer]): Unit = {
+    // TODO - maybe this should be customizable with strategy or something similar
     simulationsExperience
-      .map(toBatches)
-      .foreach { case (actualStateBatch, actionBatch, rewardBatch, nextStateBatch) =>
-        // TODO - implement improve policy in python
-        pythonUtils.improve_policy(actualStateBatch, actionBatch, rewardBatch, nextStateBatch)
+      .foreach { buffer =>
+        val iterations = Math.floor(buffer.size / miniBatchSize).toInt
+        Range.inclusive(1, iterations).foreach { iter =>
+          val (actualStateBatch, actionBatch, rewardBatch, nextStateBatch) = toBatches(buffer.sample(miniBatchSize))
+          pythonUtils.improve_policy(actualStateBatch, actionBatch, rewardBatch, nextStateBatch)
+        }
       }
   }
 
-  private def toBatches(experienceBuffer: ExperienceBuffer): (py.Dynamic, py.Dynamic, py.Dynamic, py.Dynamic)= {
-    val encodedBuffer = experienceBuffer.getAll.map(_.encode)
+  private def toBatches(experience: Seq[Experience]): (py.Dynamic, py.Dynamic, py.Dynamic, py.Dynamic)= {
+    val encodedBuffer = experience.map(_.encode)
     val actualStateBatch = torch.Tensor(encodedBuffer.map(_._1.toPythonCopy).toPythonCopy)
     val actionBatch = torch.Tensor(encodedBuffer.map(_._2).toPythonCopy)
     val rewardBatch = torch.Tensor(encodedBuffer.map(_._3).toPythonCopy)
