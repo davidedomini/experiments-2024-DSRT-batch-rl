@@ -4,13 +4,13 @@ import collection.mutable.ArrayDeque
 import scala.collection.mutable
 import scala.util.Random
 
-case class Experience(
-                       actualState: State,
+case class Experience[S <: State](
+                       actualState: S,
                        action: Action,
                        reward: Double,
-                       nextState: State)
+                       nextState: S)
                      (implicit actionEncoder: ActionEncoder,
-                      stateEncoder: StateEncoder) {
+                      stateEncoder: StateEncoder[S]) {
 
   def encode: (Seq[Double], Int, Double, Seq[Double]) = {
     (stateEncoder.encode(actualState), actionEncoder.encode(action), reward, stateEncoder.encode(nextState))
@@ -18,19 +18,19 @@ case class Experience(
 
 }
 
-trait ExperienceBuffer {
+trait ExperienceBuffer[S <: State] {
 
   /** Inserts new experience */
-  def insert(experience: Experience): Unit
+  def insert(experience: Experience[S]): Unit
 
   /** Empty the buffer */
   def reset(): Unit
 
   /** Gets a sub-sample of the experience stored by the agents */
-  def sample(batchSize: Int): Seq[Experience]
+  def sample(batchSize: Int): Seq[Experience[S]]
 
   /** Gets all the experience stored by the agents */
-  def getAll: Seq[Experience]
+  def getAll: Seq[Experience[S]]
 
   /** Gets the buffer size */
   def size: Int
@@ -38,23 +38,23 @@ trait ExperienceBuffer {
 }
 
 object ExperienceBuffer {
-  def apply(size: Int): ExperienceBuffer = {
+  def apply[S <: State](size: Int): ExperienceBuffer[S] = {
     new BoundedQueue(size, 42)
   }
 
-  private class BoundedQueue(bufferSize: Int, seed: Int) extends ExperienceBuffer {
+  private class BoundedQueue[S <: State](bufferSize: Int, seed: Int) extends ExperienceBuffer[S] {
 
-    private var queue: mutable.ArrayDeque[Experience] = mutable.ArrayDeque.empty
+    private var queue: mutable.ArrayDeque[Experience[S]] = mutable.ArrayDeque.empty
 
-    override def reset(): Unit = queue = mutable.ArrayDeque.empty[Experience]
+    override def reset(): Unit = queue = mutable.ArrayDeque.empty[Experience[S]]
 
-    override def insert(experience: Experience): Unit =
+    override def insert(experience: Experience[S]): Unit =
       queue = (queue :+ experience).takeRight(bufferSize)
 
-    override def sample(batchSize: Int): Seq[Experience] =
+    override def sample(batchSize: Int): Seq[Experience[S]] =
       new Random(seed).shuffle(queue).take(batchSize).toSeq
 
-    override def getAll: Seq[Experience] = queue.toSeq
+    override def getAll: Seq[Experience[S]] = queue.toSeq
 
     override def size: Int = queue.size
   }

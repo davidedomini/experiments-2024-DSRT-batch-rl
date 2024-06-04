@@ -1,5 +1,5 @@
 package it.unibo.alchemist.model.learning
 
-trait StateEncoder {
-  def encode(state: State): Seq[Double]
+trait StateEncoder[S <: State] {
+  def encode(state: S): Seq[Double]
 }
