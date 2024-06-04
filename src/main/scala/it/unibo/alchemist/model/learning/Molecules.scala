@@ -1,6 +1,7 @@
 package it.unibo.alchemist.model.learning
 
 object Molecules {
-  var model = "Model"
-  var experience = "ExperienceBuffer"
+  val model = "Model"
+  val experience = "ExperienceBuffer"
+  val actualState = "ActualState"
 }
