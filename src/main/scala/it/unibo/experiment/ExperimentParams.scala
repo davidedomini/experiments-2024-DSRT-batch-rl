@@ -1,4 +1,4 @@
-package it.unibo.scafi
+package it.unibo.experiment
 
 object ExperimentParams {
   val neighbors = 5

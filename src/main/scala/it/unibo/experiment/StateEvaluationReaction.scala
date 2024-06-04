@@ -1,4 +1,4 @@
-package it.unibo.scafi
+package it.unibo.experiment
 
 import it.unibo.alchemist.model.{Environment, GlobalReaction, Node, Position, TimeDistribution}
 import it.unibo.alchemist.model.implementations.reactions.AbstractGlobalReaction

@@ -1,4 +1,4 @@
-package it.unibo.scafi
+package it.unibo.experiment
 
 import it.unibo.alchemist.model.scafi.ScafiIncarnationForAlchemist._
 
