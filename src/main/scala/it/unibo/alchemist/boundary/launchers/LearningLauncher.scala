@@ -5,7 +5,7 @@ import it.unibo.alchemist.boundary.{Launcher, Loader, Variable}
 import it.unibo.alchemist.core.Simulation
 import it.unibo.interop.PythonModules._
 import it.unibo.alchemist.model.Node
-import it.unibo.alchemist.model.learning.{Experience, ExperienceBuffer, Molecules}
+import it.unibo.alchemist.model.learning.{Experience, ExperienceBuffer, Molecules, State}
 import it.unibo.alchemist.model.molecules.SimpleMolecule
 import it.unibo.alchemist.util.BugReporting
 import it.unibo.interop.PythonModules.pythonUtils
@@ -113,16 +113,16 @@ class LearningLauncher (
       }
   }
 
-  private def collectExperience(simulations: List[Simulation[Any, Nothing]]): Seq[ExperienceBuffer] = {
+  private def collectExperience(simulations: List[Simulation[Any, Nothing]]): Seq[ExperienceBuffer[State]] = {
     simulations.flatMap { simulation =>
       nodes(simulation)
         .map { node =>
-          node.getConcentration(new SimpleMolecule(Molecules.experience)).asInstanceOf[ExperienceBuffer]
+          node.getConcentration(new SimpleMolecule(Molecules.experience)).asInstanceOf[ExperienceBuffer[State]]
         }
     }
   }
 
-  private def improvePolicy(simulationsExperience: Seq[ExperienceBuffer]): Unit = {
+  private def improvePolicy(simulationsExperience: Seq[ExperienceBuffer[State]]): Unit = {
     // TODO - maybe this should be customizable with strategy or something similar
     simulationsExperience
       .foreach { buffer =>
@@ -134,7 +134,7 @@ class LearningLauncher (
       }
   }
 
-  private def toBatches(experience: Seq[Experience]): (py.Dynamic, py.Dynamic, py.Dynamic, py.Dynamic)= {
+  private def toBatches(experience: Seq[Experience[State]]): (py.Dynamic, py.Dynamic, py.Dynamic, py.Dynamic)= {
     val encodedBuffer = experience.map(_.encode)
     val actualStateBatch = torch.Tensor(encodedBuffer.map(_._1.toPythonCopy).toPythonCopy)
     val actionBatch = torch.Tensor(encodedBuffer.map(_._2).toPythonCopy)
