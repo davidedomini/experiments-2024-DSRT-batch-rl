@@ -21,7 +21,7 @@ class StateEvaluationReaction[T, P <: Position[P]](
         .take(ExperimentParams.neighbors)
         .map { neigh => toPosition2D(neigh) }
        val selfPosition = toPosition2D(node)
-       val state = FlockState(selfPosition, positions)
+       val state = FlockState.encoder.encode(FlockState(selfPosition, positions))
        node.setConcentration(new SimpleMolecule(Molecules.actualState), state.asInstanceOf[T])
     }
   }
