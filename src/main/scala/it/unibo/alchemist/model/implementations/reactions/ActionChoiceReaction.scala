@@ -15,7 +15,7 @@ class ActionChoiceReaction[T, P <: Position[P]] (
     val observations = nodes
       .map { node => node.getConcentration(new SimpleMolecule(Molecules.encodedActualState)).asInstanceOf[List[Double]] }
     // TODO - implement in python
-    val actions = pythonUtils.actionsInference(observations.toPythonProxy).asInstanceOf[List[Int]]
+    val actions = observations.map { o => 1 }//pythonUtils.actions_inference(observations.toPythonProxy).asInstanceOf[List[Int]]
     actions
       .zipWithIndex
       .foreach { case (action, index) =>
