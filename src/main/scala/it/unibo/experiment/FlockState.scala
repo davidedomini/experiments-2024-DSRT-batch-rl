@@ -8,7 +8,7 @@ case class FlockState (
   ) extends State
 
 object FlockState {
-  implicit val encoder: StateEncoder[FlockState] = (state: FlockState) => {
+  implicit val stateEncoder: StateEncoder[FlockState] = (state: FlockState) => {
     val fill = List.fill(ExperimentParams.neighbors)(0.0)
     (state.neighborsPosition.flatMap{ case (l, r) => List(l,r) } ++ fill)
       .take(ExperimentParams.neighbors * ExperimentParams.neighborPositionSize)

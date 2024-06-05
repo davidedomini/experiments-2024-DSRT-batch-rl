@@ -4,8 +4,8 @@ import it.unibo.alchemist.model.implementations.reactions.AbstractGlobalReaction
 import it.unibo.alchemist.model.learning.{Experience, ExperienceBuffer, Molecules, State}
 import it.unibo.alchemist.model.molecules.SimpleMolecule
 import it.unibo.alchemist.model.{Environment, Position, TimeDistribution}
-import it.unibo.experiment.FlockState.encoder
-import it.unibo.experiment.ActionSpace.encoder
+import it.unibo.experiment.FlockState.stateEncoder
+import it.unibo.experiment.ActionSpace.actionEncoder
 
 class ExperienceCollectionReaction [T, P <: Position[P]] (
     environment: Environment[T, P],
