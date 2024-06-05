@@ -1,6 +1,6 @@
 package it.unibo.experiment
 
-import it.unibo.alchemist.model.learning.Action
+import it.unibo.alchemist.model.learning.{Action, ActionEncoder}
 
 object ActionSpace {
 
@@ -14,4 +14,9 @@ object ActionSpace {
   case object SouthWest extends Action
 
   def all: Seq[Action] = Seq(North, South, West, East, NorthWest, SouthWest, NorthEast, SouthEast)
+
+  implicit val encoder: ActionEncoder = (action: Action) => {
+    all.indexOf(action)
+  }
+
 }
