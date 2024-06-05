@@ -13,7 +13,7 @@ class ActionChoiceReaction[T, P <: Position[P]] (
 
   override protected def executeBeforeUpdateDistribution(): Unit = {
     val observations = nodes
-      .map { node => node.getConcentration(new SimpleMolecule(Molecules.actualState)).asInstanceOf[List[Double]] }
+      .map { node => node.getConcentration(new SimpleMolecule(Molecules.encodedActualState)).asInstanceOf[List[Double]] }
     // TODO - implement in python
     val actions = pythonUtils.actionsInference(observations.toPythonProxy).asInstanceOf[List[Int]]
     actions
