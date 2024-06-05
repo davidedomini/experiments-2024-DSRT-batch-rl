@@ -61,6 +61,10 @@ environment:
         type: DiracComb
         parameters: [ 0.5, 1 ]
       type: it.unibo.experiment.RewardEvaluationReaction
+    - time-distribution:
+        type: DiracComb
+        parameters: [ 0.6, 1 ]
+      type: it.unibo.experiment.ExperienceCollectionReaction
 
 deployments:
   type: Grid
@@ -86,4 +90,4 @@ export:
 
 terminate:
   type: AfterTime
-  parameters: 20
+  parameters: 200
