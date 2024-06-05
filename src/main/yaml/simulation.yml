@@ -34,16 +34,6 @@ network-model:
   type: ConnectWithinDistance
   parameters: [0.5]
 
-_gradient: &gradient
-  - time-distribution:
-      type: DiracComb
-      parameters: [0.1, 1]
-    type: Event
-    actions:
-      - type: RunScafiProgram
-        parameters: [it.unibo.scafi.Agent, 15.0]
-  - program: send
-
 deployments:
   type: Grid
   parameters: [-5, -5, 5, 5, *spacing, *spacing, *error, *error]
@@ -53,7 +43,6 @@ deployments:
         parameters: [-6, -6, 2, 2]
       molecule: source
       concentration: true
-  programs: *gradient
 
 export:
   - type: CSVExporter
