@@ -9,7 +9,8 @@ import scala.jdk.CollectionConverters.IteratorHasAsScala
 
 class StateEvaluationReaction[T, P <: Position[P]](
     environment: Environment[T, P],
-    distribution: TimeDistribution[T]
+    distribution: TimeDistribution[T],
+    actualState: Boolean
   ) extends AbstractGlobalReaction(environment, distribution) {
 
   override protected def executeBeforeUpdateDistribution(): Unit = {
@@ -21,14 +22,25 @@ class StateEvaluationReaction[T, P <: Position[P]](
         .take(ExperimentParams.neighbors)
         .map { neigh => toPosition2D(neigh) }
        val selfPosition = toPosition2D(node)
-       val state = FlockState.encoder.encode(FlockState(selfPosition, positions))
-       node.setConcentration(new SimpleMolecule(Molecules.actualState), state.asInstanceOf[T])
+       val state = FlockState(selfPosition, positions)
+       val encodedState = FlockState.encoder.encode(state)
+       storeState(node, state, encodedState)
     }
   }
   
   private def toPosition2D(node: Node[T]): (Double, Double) = {
     val position = environment.getPosition(node)
     (position.getCoordinate(0), position.getCoordinate(1))
+  }
+
+  private def storeState(node: Node[T], state: FlockState, encodedState: Seq[Double]): Unit = {
+    if(actualState){
+      node.setConcentration(new SimpleMolecule(Molecules.actualState), state.asInstanceOf[T])
+      node.setConcentration(new SimpleMolecule(Molecules.encodedActualState), encodedState.asInstanceOf[T])
+    } else {
+      node.setConcentration(new SimpleMolecule(Molecules.nextState), state.asInstanceOf[T])
+      node.setConcentration(new SimpleMolecule(Molecules.encodedNextState), state.asInstanceOf[T])
+    }
   }
 
 }
