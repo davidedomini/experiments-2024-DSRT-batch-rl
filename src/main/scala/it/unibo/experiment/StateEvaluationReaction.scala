@@ -23,7 +23,7 @@ class StateEvaluationReaction[T, P <: Position[P]](
         .map { neigh => toPosition2D(neigh) }
        val selfPosition = toPosition2D(node)
        val state = FlockState(selfPosition, positions)
-       val encodedState = FlockState.encoder.encode(state)
+       val encodedState = FlockState.stateEncoder.encode(state)
        storeState(node, state, encodedState)
     }
   }

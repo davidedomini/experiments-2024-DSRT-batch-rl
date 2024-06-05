@@ -3,7 +3,7 @@ incarnation: scafi
 variables:
   seed: &seed
     min: 0
-    max: 1
+    max: 0
     step: 1
     default: 0
   spacing: &spacing
@@ -20,11 +20,12 @@ seeds:
 launcher:
   type: LearningLauncher
   parameters:
-    batch: [seed, spacing, error]
+    batch: [seed]
     autoStart: true
     showProgress: true
     globalRounds: 20
     seedName: seed
+    miniBatchSize: 64
 
 monitors:
   - type: it.unibo.alchemist.model.monitors.JustClean
@@ -33,6 +34,33 @@ monitors:
 network-model:
   type: ConnectWithinDistance
   parameters: [0.5]
+
+environment:
+  type: Continuous2DEnvironment
+  parameters: []
+  global-programs:
+    - time-distribution:
+        type: DiracComb
+        parameters: [0.1, 1]
+      type: it.unibo.experiment.StateEvaluationReaction
+      parameters: [true]
+    - time-distribution:
+        type: DiracComb
+        parameters: [ 0.2, 1 ]
+      type: ActionChoiceReaction
+    - time-distribution:
+        type: DiracComb
+        parameters: [ 0.3, 1 ]
+      type: it.unibo.experiment.CollectiveActionExecutionReaction
+    - time-distribution:
+        type: DiracComb
+        parameters: [ 0.4, 1 ]
+      type: it.unibo.experiment.StateEvaluationReaction
+      parameters: [ false ]
+    - time-distribution:
+        type: DiracComb
+        parameters: [ 0.5, 1 ]
+      type: it.unibo.experiment.RewardEvaluationReaction
 
 deployments:
   type: Grid
