@@ -19,10 +19,13 @@ class ExperienceCollectionReaction [T, P <: Position[P]] (
       val reward = node.getConcentration(new SimpleMolecule(Molecules.reward)).asInstanceOf[Double]
       val actionID = node.getConcentration(new SimpleMolecule(Molecules.action)).asInstanceOf[Int]
       val action = ActionSpace.all(actionID)
-      val experience = node.getConcentration(new SimpleMolecule(Molecules.experience)).asInstanceOf[ExperienceBuffer[FlockState]]
+      var experience = node.getConcentration(new SimpleMolecule(Molecules.experience)).asInstanceOf[ExperienceBuffer[FlockState]]
+      if(experience == null){
+        experience = ExperienceBuffer(ExperimentParams.experienceBufferMaxSize)
+      }
       experience.insert(Experience(actualState, action, reward, nextState))
       node.setConcentration(new SimpleMolecule(Molecules.experience), experience.asInstanceOf[T])
     }
   }
- 
+
 }

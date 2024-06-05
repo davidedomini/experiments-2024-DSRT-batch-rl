@@ -5,4 +5,5 @@ object ExperimentParams {
   val neighborPositionSize = 2
   val deltaMovement = 0.5
   val targetDistance = 0.2
+  val experienceBufferMaxSize = 1000
 }
