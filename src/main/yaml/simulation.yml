@@ -3,7 +3,7 @@ incarnation: scafi
 variables:
   seed: &seed
     min: 0
-    max: 0
+    max: 2
     step: 1
     default: 0
   spacing: &spacing
@@ -26,10 +26,6 @@ launcher:
     globalRounds: 20
     seedName: seed
     miniBatchSize: 64
-
-monitors:
-  - type: it.unibo.alchemist.model.monitors.JustClean
-    parameters: [*seed]
 
 network-model:
   type: ConnectWithinDistance
@@ -90,4 +86,4 @@ export:
 
 terminate:
   type: AfterTime
-  parameters: 200
+  parameters: 10

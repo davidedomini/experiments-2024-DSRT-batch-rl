@@ -42,6 +42,7 @@ class LearningLauncher (
 
     Range.inclusive(1, globalRounds).foreach { iter =>
       logger.info(s"Starting Global Round: $iter")
+      println(s"[AAAAAAAAAAAAAAAAAAAAAA] Starting Global Round: $iter")
       val futures = prod.zipWithIndex.map {
         case (instance, index) =>
           val sim = loader.getWith[Any, Nothing](instance.asJava)
@@ -52,14 +53,18 @@ class LearningLauncher (
       Await
         .ready(Future.sequence(futures), Duration.Inf)
         .onComplete {
-          case Success(simulations) => {
+          case Success(simulations) =>
             val experience = collectExperience(simulations)
             improvePolicy(experience)
-          }
-          case Failure(exception) => println(exception)
+            cleanPythonObjects(simulations)
+          case Failure(exception) =>
+            println(exception)
+            throw exception
         }
     }
 
+    println("[AAAAAAAAAAA] finished ")
+    // TODO - check executor shutdown
     executor.shutdown()
     executor.awaitTermination(Long.MaxValue, TimeUnit.DAYS)
     // TODO - throws errors in errorQueue
@@ -78,6 +83,7 @@ class LearningLauncher (
       .stream()
       .map(e => { mutable.Map.from(e.iterator().asScala.toList) })
       .iterator().asScala.toList
+
       .asInstanceOf[List[mutable.Map[String, Serializable]]]
   }
 
@@ -105,7 +111,6 @@ class LearningLauncher (
   }
 
   private def neuralNetworkInjection(simulation: Simulation[Any, Nothing], seed: Double): Unit = {
-    // TODO - implement load nn such that loads the latest nn trained
     val model = pythonUtils.load_neural_network(seed)
     nodes(simulation)
       .foreach { node =>
@@ -127,9 +132,10 @@ class LearningLauncher (
     simulationsExperience
       .foreach { buffer =>
         val iterations = Math.floor(buffer.size / miniBatchSize).toInt
-        Range.inclusive(1, iterations).foreach { iter =>
+        Range.inclusive(1, 2).foreach { iter =>
           val (actualStateBatch, actionBatch, rewardBatch, nextStateBatch) = toBatches(buffer.sample(miniBatchSize))
-          pythonUtils.improve_policy(actualStateBatch, actionBatch, rewardBatch, nextStateBatch)
+          // TODO - implement in python
+          // pythonUtils.improve_policy(actualStateBatch, actionBatch, rewardBatch, nextStateBatch)
         }
       }
   }
@@ -145,6 +151,21 @@ class LearningLauncher (
 
   private def nodes(simulation: Simulation[Any, Nothing]): List[Node[Any]] = {
     simulation.getEnvironment.getNodes.iterator().asScala.toList
+  }
+
+  private def cleanPythonObjects(simulations: List[Simulation[Any, Nothing]]): Unit = {
+    val gc = py.module("gc")
+    simulations.foreach { simulation =>
+      try {
+        nodes(simulation).foreach { node =>
+          node.getConcentration(new SimpleMolecule(Molecules.model)).asInstanceOf[py.Dynamic].del()
+        }
+        gc.collect()
+        Runtime.getRuntime.gc()
+      } catch {
+        case e: Throwable => println(e)
+      }
+    }
   }
 
 }
