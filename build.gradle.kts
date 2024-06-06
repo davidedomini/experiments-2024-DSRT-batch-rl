@@ -164,20 +164,12 @@ File(rootProject.rootDir.path + "/src/main/yaml").listFiles()
         }
         val capitalizedName = it.nameWithoutExtension.capitalized()
         val graphic by basetask("run${capitalizedName}Graphic") {
-            val monitor = if (capitalizedName.lowercase().contains("baseline")) "Centralized" else "Distributed"
-            val defaultParameters =
-                if (capitalizedName.lowercase().contains("baseline"))
-                    "[0.0, 0, 0, false]"
-                else
-                    "[0.0, 0, 0, 0, false, 0.0]"
             args(
                 "--override",
                 """
                    monitors: 
                         - type: SwingGUI
                           parameters: { graphics: effects/${it.nameWithoutExtension}.json }
-                        - type: it.unibo.alchemist.model.monitors.${monitor}TestSetEvaluation
-                          parameters: $defaultParameters
                 """.trimIndent(),
                 "--override",
                 "launcher: { parameters: { batch: [], autoStart: false } }",
