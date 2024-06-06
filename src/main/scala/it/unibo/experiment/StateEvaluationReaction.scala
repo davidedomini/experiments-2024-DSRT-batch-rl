@@ -39,7 +39,7 @@ class StateEvaluationReaction[T, P <: Position[P]](
       node.setConcentration(new SimpleMolecule(Molecules.encodedActualState), encodedState.asInstanceOf[T])
     } else {
       node.setConcentration(new SimpleMolecule(Molecules.nextState), state.asInstanceOf[T])
-      node.setConcentration(new SimpleMolecule(Molecules.encodedNextState), state.asInstanceOf[T])
+      node.setConcentration(new SimpleMolecule(Molecules.encodedNextState), encodedState.asInstanceOf[T])
     }
   }
 
