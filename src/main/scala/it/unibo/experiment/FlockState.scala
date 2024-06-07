@@ -9,7 +9,7 @@ case class FlockState (
 
 object FlockState {
   implicit val stateEncoder: StateEncoder[FlockState] = (state: FlockState) => {
-    val fill = List.fill(ExperimentParams.neighbors)(0.0)
+    val fill = List.fill(ExperimentParams.neighbors * ExperimentParams.neighborPositionSize)(0.0)
     (state.neighborsPosition.flatMap{ case (l, r) => List(l,r) } ++ fill)
       .take(ExperimentParams.neighbors * ExperimentParams.neighborPositionSize)
   }
