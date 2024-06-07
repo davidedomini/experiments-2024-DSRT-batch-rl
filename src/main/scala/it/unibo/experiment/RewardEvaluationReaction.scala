@@ -44,9 +44,15 @@ class RewardEvaluationReaction [T, P <: Position[P]] (
 
   private def toDistances(state: FlockState): Seq[Double] = {
     val (selfX, selfY) =  state.myPosition
-    state.neighborsPosition.map { case (x,y) =>
+    val neighbors = fixIfEmptyNeighborhood(state.neighborsPosition)
+    neighbors.map { case (x,y) =>
       Math.sqrt(Math.pow(selfX - x, 2) + Math.pow(selfY - y, 2))
     }
+  }
+
+  private def fixIfEmptyNeighborhood(positions: Seq[(Double, Double)]): Seq[(Double, Double)] = {
+    val fill = List.fill(ExperimentParams.neighbors)((0.0, 0.0))
+    (positions ++ fill).take(ExperimentParams.neighbors)
   }
 
 }
