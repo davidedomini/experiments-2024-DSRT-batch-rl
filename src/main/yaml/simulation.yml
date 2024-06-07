@@ -3,15 +3,15 @@ incarnation: scafi
 variables:
   seed: &seed
     min: 0
-    max: 2
+    max: 0
     step: 1
     default: 0
   spacing: &spacing
     type: ArbitraryVariable
-    parameters: [0.25, [0.25, 0.5]]
+    parameters: [0.5, [0.25, 0.5]]
   error: &error
     type: ArbitraryVariable
-    parameters: [0.1, [0.1, 0.2]]
+    parameters: [0.5, [0.1, 0.2]]
 
 seeds:
   scenario: *seed
@@ -23,7 +23,7 @@ launcher:
     batch: [seed]
     autoStart: true
     showProgress: true
-    globalRounds: 20
+    globalRounds: 1
     seedName: seed
     miniBatchSize: 64
 
@@ -86,4 +86,4 @@ export:
 
 terminate:
   type: AfterTime
-  parameters: 10
+  parameters: 128
