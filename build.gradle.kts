@@ -171,8 +171,6 @@ File(rootProject.rootDir.path + "/src/main/yaml").listFiles()
                         - type: SwingGUI
                           parameters: { graphics: effects/${it.nameWithoutExtension}.json }
                 """.trimIndent(),
-                "--override",
-                "launcher: { parameters: { batch: [], autoStart: false } }",
             )
         }
         runAllGraphic.dependsOn(graphic)
