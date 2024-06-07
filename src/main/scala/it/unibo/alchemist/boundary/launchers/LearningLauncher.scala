@@ -4,15 +4,16 @@ import com.google.common.collect.Lists
 import it.unibo.alchemist.boundary.{Launcher, Loader, Variable}
 import it.unibo.alchemist.core.Simulation
 import it.unibo.interop.PythonModules._
-import it.unibo.alchemist.model.Node
+import it.unibo.alchemist.model.{Environment, Layer, Node, Position}
 import it.unibo.alchemist.model.learning.{Experience, ExperienceBuffer, Molecules, State}
 import it.unibo.alchemist.model.molecules.SimpleMolecule
 import it.unibo.alchemist.util.BugReporting
+import it.unibo.experiment.SimpleSequentialDQN
 import it.unibo.interop.PythonModules.pythonUtils
 import me.shadaj.scalapy.py
 import me.shadaj.scalapy.py.{PyQuote, SeqConverters}
 import org.slf4j.{Logger, LoggerFactory}
-
+import java.nio.file.{Files, Paths}
 import scala.jdk.CollectionConverters._
 import java.util.concurrent.{ConcurrentLinkedQueue, Executors, TimeUnit}
 import scala.collection.mutable
@@ -39,15 +40,16 @@ class LearningLauncher (
   override def launch(loader: Loader): Unit = {
     val instances = loader.getVariables
     val prod = cartesianProduct(instances, batch)
+    initNN()
 
     Range.inclusive(1, globalRounds).foreach { iter =>
       logger.info(s"Starting Global Round: $iter")
-      println(s"[AAAAAAAAAAAAAAAAAAAAAA] Starting Global Round: $iter")
+      println(s"[DEBUG] Starting Global Round: $iter")
       val futures = prod.zipWithIndex.map {
         case (instance, index) =>
           val sim = loader.getWith[Any, Nothing](instance.asJava)
           val seed = instance(seedName).asInstanceOf[Double]
-          neuralNetworkInjection(sim, seed)
+          neuralNetworkInjection(sim, iter-1)
           runSimulationAsync(sim, index, instance)
       }
       Await
@@ -55,7 +57,7 @@ class LearningLauncher (
         .onComplete {
           case Success(simulations) =>
             val experience = collectExperience(simulations)
-            improvePolicy(experience)
+            improvePolicy(experience, iter - 1)
             cleanPythonObjects(simulations)
           case Failure(exception) =>
             println(exception)
@@ -63,7 +65,7 @@ class LearningLauncher (
         }
     }
 
-    println("[AAAAAAAAAAA] finished ")
+    println("[DEBUG] finished ")
     // TODO - check executor shutdown
     executor.shutdown()
     executor.awaitTermination(Long.MaxValue, TimeUnit.DAYS)
@@ -110,12 +112,20 @@ class LearningLauncher (
     future
   }
 
-  private def neuralNetworkInjection(simulation: Simulation[Any, Nothing], seed: Double): Unit = {
-    val model = pythonUtils.load_neural_network(seed)
-    nodes(simulation)
+  private def neuralNetworkInjection(simulation: Simulation[Any, Nothing], iteration: Int): Unit = {
+    val (model, _) = loadNetworks(iteration)
+    //simulation.getEnvironment.addLayer(new SimpleMolecule(Molecules.model), new ModelLayer[_](simulation.getEnvironment, actionModel))
+    nodes(simulation) // TODO - parametrize
       .foreach { node =>
          node.setConcentration(new SimpleMolecule(Molecules.model), model)
       }
+  }
+
+  private def initNN(): Unit = {
+    val path = "networks-snapshots/"
+    Files.createDirectories(Paths.get(path))
+    val network = SimpleSequentialDQN(10, 64, 8)
+    torch.save(network.state_dict(), s"${path}network-iteration-0")
   }
 
   private def collectExperience(simulations: List[Simulation[Any, Nothing]]): Seq[ExperienceBuffer[State]] = {
@@ -127,25 +137,47 @@ class LearningLauncher (
     }
   }
 
-  private def improvePolicy(simulationsExperience: Seq[ExperienceBuffer[State]]): Unit = {
+  private val targetNetworkUpdateRate = 2 // TODO - refactor
+  private val gamma = 0.9
+  private val learningRate = 0.0005
+  private def improvePolicy(simulationsExperience: Seq[ExperienceBuffer[State]], iteration: Int): Unit = {
     // TODO - maybe this should be customizable with strategy or something similar
+    val (actionNetwork, targetNetwork) = loadNetworks(iteration)
+    val optimizer = torch.optim.RMSprop(actionNetwork.parameters(), learningRate)
     simulationsExperience
       .foreach { buffer =>
         val iterations = Math.floor(buffer.size / miniBatchSize).toInt
-        Range.inclusive(1, 2).foreach { iter =>
+        Range.inclusive(1, iterations).foreach { iter =>
           val (actualStateBatch, actionBatch, rewardBatch, nextStateBatch) = toBatches(buffer.sample(miniBatchSize))
-          // TODO - implement in python
-          // pythonUtils.improve_policy(actualStateBatch, actionBatch, rewardBatch, nextStateBatch)
+          val stateActionValue = actionNetwork(torch.tensor(actualStateBatch)).gather(1, actionBatch.view(miniBatchSize, 1))
+          val nextStateValues = targetNetwork(torch.tensor(nextStateBatch)).max(1).bracketAccess(0).detach()
+          val expectedValue = (nextStateValues * gamma) + rewardBatch
+          val criterion = torch.nn.SmoothL1Loss()
+          val loss = criterion(stateActionValue, expectedValue.unsqueeze(1))
+          optimizer.zero_grad()
+          loss.backward()
+          torch.nn.utils.clip_grad_value_(actionNetwork.parameters(), 1.0)
+          optimizer.step()
+          if(iter % targetNetworkUpdateRate ==  0) {
+            targetNetwork.load_state_dict(actionNetwork.state_dict())
+          }
         }
       }
+    torch.save(actionNetwork.state_dict, s"networks-snapshots/network-iteration-${iteration+1}")
+  }
+
+  private def loadNetworks(iteration: Int): (py.Dynamic, py.Dynamic) = {
+    val network = SimpleSequentialDQN(10, 64, 8)
+    network.load_state_dict(torch.load(s"networks-snapshots/network-iteration-$iteration"))
+    (network, network)
   }
 
   private def toBatches(experience: Seq[Experience[State]]): (py.Dynamic, py.Dynamic, py.Dynamic, py.Dynamic)= {
     val encodedBuffer = experience.map(_.encode)
-    val actualStateBatch = torch.Tensor(encodedBuffer.map(_._1.toPythonCopy).toPythonCopy)
-    val actionBatch = torch.Tensor(encodedBuffer.map(_._2).toPythonCopy)
-    val rewardBatch = torch.Tensor(encodedBuffer.map(_._3).toPythonCopy)
-    val nextStateBatch = torch.Tensor(encodedBuffer.map(_._4.toPythonCopy).toPythonCopy)
+    val actualStateBatch = torch.tensor(encodedBuffer.map(_._1.toPythonCopy).toPythonCopy)
+    val actionBatch = torch.tensor(encodedBuffer.map(_._2).toPythonCopy, dtype=torch.int64)
+    val rewardBatch = torch.tensor(encodedBuffer.map(_._3).toPythonCopy)
+    val nextStateBatch = torch.tensor(encodedBuffer.map(_._4.toPythonCopy).toPythonCopy)
     (actualStateBatch, actionBatch, rewardBatch, nextStateBatch)
   }
 
