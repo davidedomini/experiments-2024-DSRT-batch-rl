@@ -23,7 +23,7 @@ launcher:
     batch: [seed]
     autoStart: true
     showProgress: true
-    globalRounds: 1
+    globalRounds: 5
     seedName: seed
     miniBatchSize: 64
 
@@ -86,4 +86,4 @@ export:
 
 terminate:
   type: AfterTime
-  parameters: 128
+  parameters: 256
