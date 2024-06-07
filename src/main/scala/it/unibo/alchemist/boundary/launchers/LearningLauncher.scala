@@ -142,6 +142,7 @@ class LearningLauncher (
   private val learningRate = 0.0005
   private def improvePolicy(simulationsExperience: Seq[ExperienceBuffer[State]], iteration: Int): Unit = {
     // TODO - maybe this should be customizable with strategy or something similar
+    println(s"Loading nn Iteration $iteration")
     val (actionNetwork, targetNetwork) = loadNetworks(iteration)
     val optimizer = torch.optim.RMSprop(actionNetwork.parameters(), learningRate)
     simulationsExperience
@@ -163,7 +164,7 @@ class LearningLauncher (
           }
         }
       }
-    torch.save(actionNetwork.state_dict, s"networks-snapshots/network-iteration-${iteration+1}")
+    torch.save(actionNetwork.state_dict(), s"networks-snapshots/network-iteration-${iteration+1}")
   }
 
   private def loadNetworks(iteration: Int): (py.Dynamic, py.Dynamic) = {
