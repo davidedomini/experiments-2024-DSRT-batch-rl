@@ -3,16 +3,22 @@ package it.unibo.alchemist.boundary.launchers
 import com.google.common.collect.Lists
 import it.unibo.alchemist.boundary.{Launcher, Loader, Variable}
 import it.unibo.alchemist.core.Simulation
+import it.unibo.alchemist.model.implementations.reactions.{AbstractGlobalReaction, GlobalReactionStrategyExecutor}
+import it.unibo.alchemist.model.layers.ModelLayer
 import it.unibo.interop.PythonModules._
-import it.unibo.alchemist.model.{Environment, Layer, Node, Position}
-import it.unibo.alchemist.model.learning.{Experience, ExperienceBuffer, Molecules, State}
+import it.unibo.alchemist.model.{Environment, Layer, Node, Position, Time}
+import it.unibo.alchemist.model.learning.{ExecutionStrategy, Experience, ExperienceBuffer, GlobalExecution, LocalExecution, Molecules, State}
 import it.unibo.alchemist.model.molecules.SimpleMolecule
+import it.unibo.alchemist.model.timedistributions.DiracComb
+import it.unibo.alchemist.model.times.DoubleTime
 import it.unibo.alchemist.util.BugReporting
 import it.unibo.experiment.SimpleSequentialDQN
 import it.unibo.interop.PythonModules.pythonUtils
 import me.shadaj.scalapy.py
 import me.shadaj.scalapy.py.{PyQuote, SeqConverters}
+import org.apache.commons.lang3.NotImplementedException
 import org.slf4j.{Logger, LoggerFactory}
+
 import java.nio.file.{Files, Paths}
 import scala.jdk.CollectionConverters._
 import java.util.concurrent.{ConcurrentLinkedQueue, Executors, TimeUnit}
@@ -114,7 +120,8 @@ class LearningLauncher (
 
   private def neuralNetworkInjection(simulation: Simulation[Any, Nothing], iteration: Int): Unit = {
     val (model, _) = loadNetworks(iteration)
-    //simulation.getEnvironment.addLayer(new SimpleMolecule(Molecules.model), new ModelLayer[_](simulation.getEnvironment, actionModel))
+    //val layer = new ModelLayer[Any, Nothing](simulation.getEnvironment, model)
+    //simulation.getEnvironment.addLayer(new SimpleMolecule(Molecules.model), layer)
     nodes(simulation) // TODO - parametrize
       .foreach { node =>
          node.setConcentration(new SimpleMolecule(Molecules.model), model)
@@ -184,6 +191,18 @@ class LearningLauncher (
 
   private def nodes(simulation: Simulation[Any, Nothing]): List[Node[Any]] = {
     simulation.getEnvironment.getNodes.iterator().asScala.toList
+  }
+
+  private def scheduleStrategies(strategies: List[ExecutionStrategy], simulation: Simulation[Any, Nothing]): Unit = {
+    strategies.zipWithIndex.foreach {
+      case (strategy: GlobalExecution, index) =>
+        val rate = (index + 1).toDouble / 10.0
+        val timeDistribution = new DiracComb[Any](new DoubleTime(rate), 1)
+        val reaction = new GlobalReactionStrategyExecutor[Any, Nothing](simulation.getEnvironment, timeDistribution, strategy)
+        simulation.getEnvironment.addGlobalReaction(reaction)
+      case (strategy: LocalExecution, index) => throw new NotImplementedException("This feature has not been implemented yet!")
+      case _ => throw new UnsupportedOperationException("Strategies can be only local or global!")
+    }
   }
 
   private def cleanPythonObjects(simulations: List[Simulation[Any, Nothing]]): Unit = {
