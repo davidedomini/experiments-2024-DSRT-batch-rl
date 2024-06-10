@@ -44,12 +44,12 @@ class LearningLauncher (
   private val errorQueue = new ConcurrentLinkedQueue[Throwable]()
   private val executor = Executors.newFixedThreadPool(parallelism)
   private implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(executor)
+  private var models: List[py.Dynamic] = List.empty
 
   override def launch(loader: Loader): Unit = {
     val instances = loader.getVariables
     val prod = cartesianProduct(instances, batch)
     initNN()
-
     Range.inclusive(1, globalRounds).foreach { iter =>
       logger.info(s"Starting Global Round: $iter")
       println(s"[DEBUG] Starting Global Round: $iter")
@@ -66,13 +66,15 @@ class LearningLauncher (
         .onComplete {
           case Success(simulations) =>
             val experience = collectExperience(simulations)
-            improvePolicy(experience, iter - 1)
+            improvePolicy(experience, iter-1)
             cleanPythonObjects(simulations)
           case Failure(exception) =>
             println(exception)
             throw exception
         }
     }
+
+    saveNetworks()
 
     println("[DEBUG] finished ")
     // TODO - check executor shutdown
@@ -128,10 +130,20 @@ class LearningLauncher (
   }
 
   private def initNN(): Unit = {
-    val path = "networks-snapshots/"
+    /*val path = "networks-snapshots/"
     Files.createDirectories(Paths.get(path))
     val network = SimpleSequentialDQN(10, 64, 8)
-    torch.save(network.state_dict(), s"${path}network-iteration-0")
+    torch.save(network.state_dict(), s"${path}network-iteration-0")*/
+    val network = SimpleSequentialDQN(10, 64, 8)
+    models = models :+ network
+  }
+
+  private def saveNetworks(): Unit = {
+    val path = "networks-snapshots/"
+    Files.createDirectories(Paths.get(path))
+    models.zipWithIndex.foreach { case (model, index) =>
+      torch.save(model.state_dict(), s"${path}network-iteration-$index")
+    }
   }
 
   private def collectExperience(simulations: List[Simulation[Any, Nothing]]): Seq[ExperienceBuffer[State]] = {
@@ -174,9 +186,13 @@ class LearningLauncher (
   }
 
   private def loadNetworks(iteration: Int): (py.Dynamic, py.Dynamic) = {
-    val network = SimpleSequentialDQN(10, 64, 8)
-    network.load_state_dict(torch.load(s"networks-snapshots/network-iteration-$iteration"))
-    (network, network)
+    val actionNetwork = SimpleSequentialDQN(10, 64, 8)
+    val targetNetwork = SimpleSequentialDQN(10, 64, 8)
+    //network.load_state_dict(torch.load(s"networks-snapshots/network-iteration-$iteration"))
+    val model = models(iteration)
+    actionNetwork.load_state_dict(model.state_dict())
+    targetNetwork.load_state_dict(model.state_dict())
+    (actionNetwork, targetNetwork)
   }
 
   private def toBatches(experience: Seq[Experience[State]]): (py.Dynamic, py.Dynamic, py.Dynamic, py.Dynamic)= {
