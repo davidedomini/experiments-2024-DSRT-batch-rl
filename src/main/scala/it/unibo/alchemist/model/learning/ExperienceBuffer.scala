@@ -32,6 +32,8 @@ trait ExperienceBuffer[S <: State] {
   /** Gets all the experience stored by the agents */
   def getAll: Seq[Experience[S]]
 
+  def addAll(experience: Seq[Experience[S]]): Unit
+
   /** Gets the buffer size */
   def size: Int
 
@@ -44,9 +46,9 @@ object ExperienceBuffer {
 
   private class BoundedQueue[S <: State](bufferSize: Int, seed: Int) extends ExperienceBuffer[S] {
 
-    private var queue: mutable.ArrayDeque[Experience[S]] = mutable.ArrayDeque.empty
+    private var queue: ArrayDeque[Experience[S]] = ArrayDeque.empty
 
-    override def reset(): Unit = queue = mutable.ArrayDeque.empty[Experience[S]]
+    override def reset(): Unit = queue = ArrayDeque.empty[Experience[S]]
 
     override def insert(experience: Experience[S]): Unit =
       queue = (queue :+ experience).takeRight(bufferSize)
@@ -55,6 +57,9 @@ object ExperienceBuffer {
       new Random(seed).shuffle(queue).take(batchSize).toSeq
 
     override def getAll: Seq[Experience[S]] = queue.toSeq
+
+    override def addAll(experience: Seq[Experience[S]]): Unit =
+      queue = queue :++ experience
 
     override def size: Int = queue.size
   }
