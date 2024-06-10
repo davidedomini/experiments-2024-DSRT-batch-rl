@@ -8,7 +8,7 @@ variables:
     default: 0
   spacing: &spacing
     type: ArbitraryVariable
-    parameters: [0.5, [0.25, 0.5]]
+    parameters: [1, [0.25, 0.5]]
   error: &error
     type: ArbitraryVariable
     parameters: [0.5, [0.1, 0.2]]
@@ -17,50 +17,17 @@ seeds:
   scenario: *seed
   simulation: *seed
 
-launcher:
-  type: LearningLauncher
-  parameters:
-    batch: [seed]
-    autoStart: true
-    showProgress: true
-    globalRounds: 5
-    seedName: seed
-    miniBatchSize: 64
-
 network-model:
   type: ConnectWithinDistance
-  parameters: [0.5]
+  parameters: [3]
+
+monitors:
+  - type: SwingGUI
+    parameters: { graphics: effects/simulation.json }
 
 environment:
   type: Continuous2DEnvironment
   parameters: []
-  global-programs:
-    - time-distribution:
-        type: DiracComb
-        parameters: [0.1, 1]
-      type: it.unibo.experiment.StateEvaluationReaction
-      parameters: [true]
-    - time-distribution:
-        type: DiracComb
-        parameters: [ 0.2, 1 ]
-      type: ActionChoiceReaction
-    - time-distribution:
-        type: DiracComb
-        parameters: [ 0.3, 1 ]
-      type: it.unibo.experiment.CollectiveActionExecutionReaction
-    - time-distribution:
-        type: DiracComb
-        parameters: [ 0.4, 1 ]
-      type: it.unibo.experiment.StateEvaluationReaction
-      parameters: [ false ]
-    - time-distribution:
-        type: DiracComb
-        parameters: [ 0.5, 1 ]
-      type: it.unibo.experiment.RewardEvaluationReaction
-    - time-distribution:
-        type: DiracComb
-        parameters: [ 0.6, 1 ]
-      type: it.unibo.experiment.ExperienceCollectionReaction
 
 deployments:
   type: Grid
@@ -80,10 +47,10 @@ export:
       exportPath: "data"
     data:
       - time
-      - molecule: Counter
+      - molecule: Reward
         aggregators: [min, max, mean, variance]
         value-filter: onlyFinite
 
 terminate:
   type: AfterTime
-  parameters: 256
+  parameters: 512
