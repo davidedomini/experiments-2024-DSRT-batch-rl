@@ -16,10 +16,13 @@ class RewardEvaluationStrategy[T, P <: Position[P]] extends GlobalExecution[T, P
     }
   }
 
-
   private def computeReward(state: FlockState): Double = {
-    val distances = toDistances(state)
-    cohesion(distances) + collision(distances)
+    if(state.neighborsPosition.isEmpty){
+      0.0
+    } else{
+      val distances = toDistances(state)
+      cohesion(distances) + collision(distances)
+    }
   }
 
   private def cohesion(distances: Seq[Double]): Double = {
@@ -43,15 +46,10 @@ class RewardEvaluationStrategy[T, P <: Position[P]] extends GlobalExecution[T, P
 
   private def toDistances(state: FlockState): Seq[Double] = {
     val (selfX, selfY) =  state.myPosition
-    val neighbors = fixIfEmptyNeighborhood(state.neighborsPosition)
+    val neighbors = state.neighborsPosition
     neighbors.map { case (x,y) =>
       Math.sqrt(Math.pow(selfX - x, 2) + Math.pow(selfY - y, 2))
     }
-  }
-
-  private def fixIfEmptyNeighborhood(positions: Seq[(Double, Double)]): Seq[(Double, Double)] = {
-    val fill = List.fill(ExperimentParams.neighbors)((0.0, 0.0))
-    (positions ++ fill).take(ExperimentParams.neighbors)
   }
 
   private def nodes(environment: Environment[T , P]) =
