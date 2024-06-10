@@ -17,6 +17,7 @@ import it.unibo.interop.PythonModules.pythonUtils
 import me.shadaj.scalapy.py
 import me.shadaj.scalapy.py.{PyQuote, SeqConverters}
 import org.apache.commons.lang3.NotImplementedException
+import org.jooq.lambda.fi.lang.CheckedRunnable
 import org.slf4j.{Logger, LoggerFactory}
 
 import java.nio.file.{Files, Paths}
@@ -34,7 +35,8 @@ class LearningLauncher (
                          val showProgress: Boolean,
                          val globalRounds: Int,
                          val seedName: String,
-                         val miniBatchSize: Int
+                         val miniBatchSize: Int,
+                         val strategies: List[ExecutionStrategy[Any, Nothing]]
                        ) extends Launcher {
 
   private val parallelism: Int = Runtime.getRuntime.availableProcessors()
@@ -55,6 +57,7 @@ class LearningLauncher (
         case (instance, index) =>
           val sim = loader.getWith[Any, Nothing](instance.asJava)
           val seed = instance(seedName).asInstanceOf[Double]
+          scheduleStrategies(strategies, sim)
           neuralNetworkInjection(sim, iter-1)
           runSimulationAsync(sim, index, instance)
       }
@@ -193,16 +196,20 @@ class LearningLauncher (
     simulation.getEnvironment.getNodes.iterator().asScala.toList
   }
 
-  private def scheduleStrategies(strategies: List[ExecutionStrategy], simulation: Simulation[Any, Nothing]): Unit = {
-    strategies.zipWithIndex.foreach {
-      case (strategy: GlobalExecution, index) =>
-        val rate = (index + 1).toDouble / 10.0
-        val timeDistribution = new DiracComb[Any](new DoubleTime(rate), 1)
-        val reaction = new GlobalReactionStrategyExecutor[Any, Nothing](simulation.getEnvironment, timeDistribution, strategy)
-        simulation.getEnvironment.addGlobalReaction(reaction)
-      case (strategy: LocalExecution, index) => throw new NotImplementedException("This feature has not been implemented yet!")
-      case _ => throw new UnsupportedOperationException("Strategies can be only local or global!")
-    }
+  private def scheduleStrategies(strategies: List[ExecutionStrategy[Any, Nothing]], simulation: Simulation[Any, Nothing]): Unit = {
+    simulation.schedule(() => {
+      strategies.zipWithIndex.foreach {
+        case (strategy: GlobalExecution[Any, Nothing], index) =>
+          val rate = (index + 1).toDouble / 10.0
+          val timeDistribution = new DiracComb[Any](new DoubleTime(rate), 1)
+          val environment = simulation.getEnvironment
+          val reaction = new GlobalReactionStrategyExecutor[Any, Nothing](environment, timeDistribution, strategy)
+          simulation.getEnvironment.addGlobalReaction(reaction)
+        case (strategy: LocalExecution[Any, Nothing], index) =>
+          throw new NotImplementedException("This feature has not been implemented yet!")
+        case _ => throw new UnsupportedOperationException("Strategies can only be local or global!")
+      }
+    })
   }
 
   private def cleanPythonObjects(simulations: List[Simulation[Any, Nothing]]): Unit = {

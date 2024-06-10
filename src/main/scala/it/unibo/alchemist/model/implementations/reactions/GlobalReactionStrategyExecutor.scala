@@ -9,7 +9,7 @@ import scala.jdk.CollectionConverters.IteratorHasAsScala
 class GlobalReactionStrategyExecutor[T, P <: Position[P]](
     val environment: Environment[T, P],
     distribution: TimeDistribution[T],
-    strategy: ExecutionStrategy
+    strategy: ExecutionStrategy[T, P]
   ) extends GlobalReaction[T] {
 
   private val actions: util.List[Action[T]] = util.List.of()
@@ -33,7 +33,7 @@ class GlobalReactionStrategyExecutor[T, P <: Position[P]](
   }
 
   private def executeBeforeUpdateDistribution(): Unit =
-    strategy.execute(environment.asInstanceOf[Environment[Any, Nothing]]) // TODO - check if correct
+    strategy.execute(environment) // TODO - check if correct
 
   override def getConditions: util.List[Condition[T]] = conditions
 

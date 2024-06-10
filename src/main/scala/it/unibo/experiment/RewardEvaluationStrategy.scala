@@ -1,22 +1,21 @@
 package it.unibo.experiment
 
-import it.unibo.alchemist.model.{Environment, Position, TimeDistribution}
-import it.unibo.alchemist.model.implementations.reactions.AbstractGlobalReaction
-import it.unibo.alchemist.model.learning.{Action, Molecules}
+import it.unibo.alchemist.model.{Environment, Position}
+import it.unibo.alchemist.model.learning.{GlobalExecution, Molecules}
 import it.unibo.alchemist.model.molecules.SimpleMolecule
 
-class RewardEvaluationReaction [T, P <: Position[P]] (
-    environment: Environment[T, P],
-    distribution: TimeDistribution[T]
-  ) extends AbstractGlobalReaction(environment, distribution) {
+import scala.jdk.CollectionConverters.IteratorHasAsScala
 
-  override protected def executeBeforeUpdateDistribution(): Unit = {
-    nodes.foreach { node =>
+class RewardEvaluationStrategy[T, P <: Position[P]] extends GlobalExecution[T, P]{
+
+  override def execute(environment: Environment[T, P]): Unit = {
+    nodes(environment).foreach { node =>
       val state = node.getConcentration(new SimpleMolecule(Molecules.nextState)).asInstanceOf[FlockState]
       val reward = computeReward(state)
       node.setConcentration(new SimpleMolecule(Molecules.reward), reward.asInstanceOf[T])
     }
   }
+
 
   private def computeReward(state: FlockState): Double = {
     val distances = toDistances(state)
@@ -54,5 +53,8 @@ class RewardEvaluationReaction [T, P <: Position[P]] (
     val fill = List.fill(ExperimentParams.neighbors)((0.0, 0.0))
     (positions ++ fill).take(ExperimentParams.neighbors)
   }
+
+  private def nodes(environment: Environment[T , P]) =
+    environment.getNodes.iterator().asScala.toList
 
 }

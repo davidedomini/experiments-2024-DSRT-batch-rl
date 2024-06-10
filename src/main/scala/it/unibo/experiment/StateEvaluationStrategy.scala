@@ -1,14 +1,13 @@
 package it.unibo.experiment
 
-import it.unibo.alchemist.model.{Environment, Node}
+import it.unibo.alchemist.model.{Environment, Node, Position}
 import it.unibo.alchemist.model.learning.{GlobalExecution, Molecules}
 import it.unibo.alchemist.model.molecules.SimpleMolecule
-
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 
-class StateEvaluationStrategy(actualState: Boolean) extends GlobalExecution {
+class StateEvaluationStrategy[T, P <: Position[P]](actualState: Boolean) extends GlobalExecution[T, P] {
 
-  override def execute(environment: Environment[Any, Nothing]): Unit = {
+  override def execute(environment: Environment[T, P]): Unit = {
     nodes(environment).foreach { node =>
       val positions = environment
         .getNeighborhood(node)
@@ -23,23 +22,21 @@ class StateEvaluationStrategy(actualState: Boolean) extends GlobalExecution {
     }
   }
 
-  private def toPosition2D(node: Node[Any], environment: Environment[Any, Nothing]): (Double, Double) = {
+  private def toPosition2D(node: Node[T], environment: Environment[T, P]): (Double, Double) = {
     val position = environment.getPosition(node)
-    //(position.getCoordinate(0), position.getCoordinate(1))
-    // TODO - fix
-    (0.0, 0.0)
+    (position.getCoordinate(0), position.getCoordinate(1))
   }
 
-  private def storeState(node: Node[Any], state: FlockState, encodedState: Seq[Double]): Unit = {
+  private def storeState(node: Node[T], state: FlockState, encodedState: Seq[Double]): Unit = {
     if(actualState){
-      node.setConcentration(new SimpleMolecule(Molecules.actualState), state)
-      node.setConcentration(new SimpleMolecule(Molecules.encodedActualState), encodedState)
+      node.setConcentration(new SimpleMolecule(Molecules.actualState), state.asInstanceOf[T])
+      node.setConcentration(new SimpleMolecule(Molecules.encodedActualState), encodedState.asInstanceOf[T])
     } else {
-      node.setConcentration(new SimpleMolecule(Molecules.nextState), state)
-      node.setConcentration(new SimpleMolecule(Molecules.encodedNextState), encodedState)
+      node.setConcentration(new SimpleMolecule(Molecules.nextState), state.asInstanceOf[T])
+      node.setConcentration(new SimpleMolecule(Molecules.encodedNextState), encodedState.asInstanceOf[T])
     }
   }
 
-  private def nodes(environment: Environment[Any, Nothing]) =
+  private def nodes(environment: Environment[T , P]) =
     environment.getNodes.iterator().asScala.toList
 }
