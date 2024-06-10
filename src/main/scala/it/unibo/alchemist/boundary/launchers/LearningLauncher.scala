@@ -7,7 +7,7 @@ import it.unibo.alchemist.model.implementations.reactions.{AbstractGlobalReactio
 import it.unibo.alchemist.model.layers.ModelLayer
 import it.unibo.interop.PythonModules._
 import it.unibo.alchemist.model.{Environment, Layer, Node, Position, Time}
-import it.unibo.alchemist.model.learning.{ExecutionStrategy, Experience, ExperienceBuffer, GlobalExecution, LocalExecution, Molecules, State}
+import it.unibo.alchemist.model.learning.{Action, ExecutionStrategy, Experience, ExperienceBuffer, GlobalExecution, LocalExecution, Molecules, State}
 import it.unibo.alchemist.model.molecules.SimpleMolecule
 import it.unibo.alchemist.model.timedistributions.DiracComb
 import it.unibo.alchemist.model.times.DoubleTime
@@ -19,7 +19,6 @@ import me.shadaj.scalapy.py.{PyQuote, SeqConverters}
 import org.apache.commons.lang3.NotImplementedException
 import org.jooq.lambda.fi.lang.CheckedRunnable
 import org.slf4j.{Logger, LoggerFactory}
-
 import java.nio.file.{Files, Paths}
 import scala.jdk.CollectionConverters._
 import java.util.concurrent.{ConcurrentLinkedQueue, Executors, TimeUnit}
@@ -49,29 +48,22 @@ class LearningLauncher (
   override def launch(loader: Loader): Unit = {
     val instances = loader.getVariables
     val prod = cartesianProduct(instances, batch)
-    initNN()
+    initializeNetwork()
     Range.inclusive(1, globalRounds).foreach { iter =>
       logger.info(s"Starting Global Round: $iter")
-      println(s"[DEBUG] Starting Global Round: $iter")
       val futures = prod.zipWithIndex.map {
         case (instance, index) =>
           val sim = loader.getWith[Any, Nothing](instance.asJava)
           val seed = instance(seedName).asInstanceOf[Double]
           scheduleStrategies(strategies, sim)
+          println(s"${Thread.currentThread().getName}")
           neuralNetworkInjection(sim, iter-1)
           runSimulationAsync(sim, index, instance)
       }
-      Await
-        .ready(Future.sequence(futures), Duration.Inf)
-        .onComplete {
-          case Success(simulations) =>
-            val experience = collectExperience(simulations)
-            improvePolicy(experience, iter-1)
-            cleanPythonObjects(simulations)
-          case Failure(exception) =>
-            println(exception)
-            throw exception
-        }
+      val simulations = Await.result(Future.sequence(futures), Duration.Inf)
+      val experience = collectExperience(simulations)
+      improvePolicy(experience, iter-1)
+      cleanPythonObjects(simulations)
     }
 
     saveNetworks()
@@ -96,7 +88,6 @@ class LearningLauncher (
       .stream()
       .map(e => { mutable.Map.from(e.iterator().asScala.toList) })
       .iterator().asScala.toList
-
       .asInstanceOf[List[mutable.Map[String, Serializable]]]
   }
 
@@ -129,11 +120,7 @@ class LearningLauncher (
     simulation.getEnvironment.addLayer(new SimpleMolecule(Molecules.model), layer)
   }
 
-  private def initNN(): Unit = {
-    /*val path = "networks-snapshots/"
-    Files.createDirectories(Paths.get(path))
-    val network = SimpleSequentialDQN(10, 64, 8)
-    torch.save(network.state_dict(), s"${path}network-iteration-0")*/
+  private def initializeNetwork(): Unit = {
     val network = SimpleSequentialDQN(10, 64, 8)
     models = models :+ network
   }
@@ -147,11 +134,17 @@ class LearningLauncher (
   }
 
   private def collectExperience(simulations: List[Simulation[Any, Nothing]]): Seq[ExperienceBuffer[State]] = {
-    simulations.flatMap { simulation =>
+    simulations.map { simulation =>
       nodes(simulation)
-        .map { node =>
-          node.getConcentration(new SimpleMolecule(Molecules.experience)).asInstanceOf[ExperienceBuffer[State]]
-        }
+        .map { _.getConcentration(new SimpleMolecule(Molecules.experience)) }
+        .map { _.asInstanceOf[ExperienceBuffer[State]] }
+        .map { _.getAll }
+        .foldLeft(ExperienceBuffer[State](100000))(
+          (buffer, experience) => {
+            buffer.addAll(experience)
+            buffer
+          }
+        )
     }
   }
 
@@ -182,13 +175,12 @@ class LearningLauncher (
           }
         }
       }
-    torch.save(actionNetwork.state_dict(), s"networks-snapshots/network-iteration-${iteration+1}")
+    models = models :+ actionNetwork
   }
 
   private def loadNetworks(iteration: Int): (py.Dynamic, py.Dynamic) = {
     val actionNetwork = SimpleSequentialDQN(10, 64, 8)
     val targetNetwork = SimpleSequentialDQN(10, 64, 8)
-    //network.load_state_dict(torch.load(s"networks-snapshots/network-iteration-$iteration"))
     val model = models(iteration)
     actionNetwork.load_state_dict(model.state_dict())
     targetNetwork.load_state_dict(model.state_dict())
