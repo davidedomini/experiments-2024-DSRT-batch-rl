@@ -1,8 +1,8 @@
 package it.unibo.alchemist.model.learning
 
-import it.unibo.alchemist.boundary.LoadAlchemist
 import it.unibo.alchemist.boundary.launchers.LearningLauncher
 import scala.jdk.CollectionConverters.SeqHasAsJava
+import it.unibo.alchemist.boundary.LoadAlchemist
 
 case class BatchLearning (
     strategies: List[ExecutionStrategy[Any, Nothing]],
@@ -16,7 +16,7 @@ case class BatchLearning (
   def startLearning(): Unit = {
     val loader = LoadAlchemist.from(simulationConfiguration)
     val launcher = new LearningLauncher(
-      batch.asJava.asInstanceOf[java.util.ArrayList[String]],
+      new java.util.ArrayList(batch.asJava),
       false,
       false,
       globalRounds,
