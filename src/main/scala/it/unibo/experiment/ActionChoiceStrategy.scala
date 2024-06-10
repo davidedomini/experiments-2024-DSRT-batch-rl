@@ -28,6 +28,10 @@ class ActionChoiceStrategy[T, P <: Position[P]] extends GlobalExecution[T, P]{
 
   private def loadNN(environment: Environment[T , P]): py.Dynamic = {
     nodes(environment).head.getConcentration(new SimpleMolecule(Molecules.model)).asInstanceOf[py.Dynamic]
+    environment.getLayer(new SimpleMolecule(Molecules.model)) match {
+      case Some(model) => model.asInstanceOf[py.Dynamic]
+      case None => throw new IllegalStateException("Model layer not found!")
+    }
   }
 
   private def nodes(environment: Environment[T , P]) =

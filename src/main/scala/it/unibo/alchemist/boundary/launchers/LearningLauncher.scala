@@ -123,12 +123,8 @@ class LearningLauncher (
 
   private def neuralNetworkInjection(simulation: Simulation[Any, Nothing], iteration: Int): Unit = {
     val (model, _) = loadNetworks(iteration)
-    //val layer = new ModelLayer[Any, Nothing](simulation.getEnvironment, model)
-    //simulation.getEnvironment.addLayer(new SimpleMolecule(Molecules.model), layer)
-    nodes(simulation) // TODO - parametrize
-      .foreach { node =>
-         node.setConcentration(new SimpleMolecule(Molecules.model), model)
-      }
+    val layer = new ModelLayer[Any, Nothing](simulation.getEnvironment, model)
+    simulation.getEnvironment.addLayer(new SimpleMolecule(Molecules.model), layer)
   }
 
   private def initNN(): Unit = {
