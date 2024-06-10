@@ -8,17 +8,26 @@ import me.shadaj.scalapy.py
 import me.shadaj.scalapy.py.SeqConverters
 
 import scala.jdk.CollectionConverters.IteratorHasAsScala
+import scala.util.Random
 
 class ActionChoiceStrategy[T, P <: Position[P]] extends GlobalExecution[T, P]{
 
+
+  val random = new Random(42)
+
   override def execute(environment: Environment[T, P]): Unit = {
     val policy = loadNN(environment)
-
-    val observations = nodes(environment)
-      .map { node => node.getConcentration(new SimpleMolecule(Molecules.encodedActualState)).asInstanceOf[List[Double]] }
-    val observationsTensor = torch.Tensor(observations.toPythonProxy)
-    val qValues = policy(observationsTensor)
-    val actions = qValues.argmax(dim=1).tolist().as[List[Int]]
+    var actions: List[Int] = List.empty
+    val r = random.nextDouble()
+    if(r < 0.1) {
+      actions = nodes(environment).map { n => random.nextInt(8) }
+    } else {
+      val observations = nodes(environment)
+        .map { node => node.getConcentration(new SimpleMolecule(Molecules.encodedActualState)).asInstanceOf[List[Double]] }
+      val observationsTensor = torch.Tensor(observations.toPythonProxy)
+      val qValues = policy(observationsTensor)
+      actions = qValues.argmax(dim=1).tolist().as[List[Int]]
+    }
     actions
       .zipWithIndex
       .foreach { case (action, index) =>
@@ -28,10 +37,8 @@ class ActionChoiceStrategy[T, P <: Position[P]] extends GlobalExecution[T, P]{
 
   private def loadNN(environment: Environment[T , P]): py.Dynamic = {
     nodes(environment).head.getConcentration(new SimpleMolecule(Molecules.model)).asInstanceOf[py.Dynamic]
-    environment.getLayer(new SimpleMolecule(Molecules.model)) match {
-      case Some(model) => model.asInstanceOf[py.Dynamic]
-      case None => throw new IllegalStateException("Model layer not found!")
-    }
+    val position = environment.getPosition(nodes(environment).head)
+    environment.getLayer(new SimpleMolecule(Molecules.model)).get().getValue(position).asInstanceOf[py.Dynamic]
   }
 
   private def nodes(environment: Environment[T , P]) =
