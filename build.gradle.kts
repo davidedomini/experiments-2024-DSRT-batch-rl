@@ -193,3 +193,25 @@ File(rootProject.rootDir.path + "/src/main/yaml").listFiles()
         }
         runAllBatch.dependsOn(batch)
     }
+
+tasks.register<JavaExec>("runFlocking"){
+    group = alchemistGroup
+    description = "Launches graphic simulation"
+    mainClass.set("it.unibo.experiment.RunFlockingExperiment")
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs(
+        when (Os.isFamily(Os.FAMILY_WINDOWS)) {
+            true -> "-Dscalapy.python.programname=$pythonVirtualEnvName\\Scripts\\python"
+            false -> "-Dscalapy.python.programname=$pythonVirtualEnvName/bin/python"
+        }
+    )
+    javaLauncher.set(
+        javaToolchains.launcherFor {
+            languageVersion.set(JavaLanguageVersion.of(usesJvm))
+        },
+    )
+    if (System.getenv("CI") == "true") {
+        args("--override", "terminate: { type: AfterTime, parameters: [2] } ")
+    }
+    dependsOn(installCustomDependency)
+}
