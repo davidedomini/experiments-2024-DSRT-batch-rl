@@ -13,13 +13,16 @@ import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.util.Random
 
 class ActionChoiceStrategy[T, P <: Position[P]] extends GlobalExecution[T, P] {
+  val initial = 0.99
 
   override def execute(environment: Environment[T, P], random: RandomGenerator): Unit = {
     val policy = loadNN(environment)
     var actions: List[Int] = List.empty
     val r = random.nextDouble()
-    if (r < 0.2) {
-      actions = nodes(environment).map(n => random.nextInt(8))
+    val epsilon = initial - (round / 20.0)
+    val epsilonFixed = if (epsilon < 0) 0 else epsilon
+    if (r < epsilonFixed) {
+      actions = nodes(environment).map(n => random.nextInt(ActionSpace.all.size))
     } else {
       val observations = nodes(environment)
         .map { node =>

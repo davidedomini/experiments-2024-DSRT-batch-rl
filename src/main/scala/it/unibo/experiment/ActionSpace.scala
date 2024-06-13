@@ -12,8 +12,9 @@ object ActionSpace {
   case object SouthEast extends Action
   case object NorthWest extends Action
   case object SouthWest extends Action
+  case object Stay extends Action
 
-  def all: Seq[Action] = Seq(North, South, West, East, NorthWest, SouthWest, NorthEast, SouthEast)
+  def all: Seq[Action] = Seq(North, South, West, East, NorthWest, SouthWest, NorthEast, SouthEast, Stay)
 
   implicit val actionEncoder: ActionEncoder = (action: Action) => all.indexOf(action)
 

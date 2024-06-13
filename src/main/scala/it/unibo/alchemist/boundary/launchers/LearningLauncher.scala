@@ -21,7 +21,7 @@ import it.unibo.alchemist.model.molecules.SimpleMolecule
 import it.unibo.alchemist.model.timedistributions.DiracComb
 import it.unibo.alchemist.model.times.DoubleTime
 import it.unibo.alchemist.util.BugReporting
-import it.unibo.experiment.SimpleSequentialDQN
+import it.unibo.experiment.{ActionSpace, SimpleSequentialDQN}
 import it.unibo.interop.PythonModules.pythonUtils
 import me.shadaj.scalapy.py
 import me.shadaj.scalapy.py.{PyQuote, SeqConverters}
@@ -83,6 +83,7 @@ class LearningLauncher(
       val experience = collectExperience(completedSimulations)
       improvePolicy(experience, iter - 1)
       cleanPythonObjects(completedSimulations)
+      strategies.foreach(_.progressRound)
     }
 
     saveNetworks()
@@ -145,7 +146,7 @@ class LearningLauncher(
   }
 
   private def initializeNetwork(): Unit = {
-    val network = SimpleSequentialDQN(10, 64, 8)
+    val network = SimpleSequentialDQN(10, 64, ActionSpace.all.size)
     models = models :+ network
   }
 
@@ -170,9 +171,9 @@ class LearningLauncher(
     }
   }
 
-  private val targetNetworkUpdateRate = 2 // TODO - refactor
+  private val targetNetworkUpdateRate = 50 // TODO - refactor
   private val gamma = 0.9
-  private val learningRate = 0.0005
+  private val learningRate = 0.005
   private def improvePolicy(simulationsExperience: Seq[ExperienceBuffer[State]], iteration: Int): Unit = {
     // TODO - maybe this should be customizable with strategy or something similar
     println(s"Loading nn Iteration $iteration")
@@ -180,7 +181,7 @@ class LearningLauncher(
     val optimizer = torch.optim.RMSprop(actionNetwork.parameters(), learningRate)
     simulationsExperience
       .foreach { buffer =>
-        val iterations = 3 //Math.floor(buffer.size / miniBatchSize).toInt
+        val iterations = 100 //Math.floor(buffer.size / miniBatchSize).toInt
         Range.inclusive(1, iterations).foreach { iter =>
           val (actualStateBatch, actionBatch, rewardBatch, nextStateBatch) = toBatches(buffer.sample(miniBatchSize))
           val stateActionValue =
@@ -202,8 +203,8 @@ class LearningLauncher(
   }
 
   private def loadNetworks(iteration: Int): (py.Dynamic, py.Dynamic) = {
-    val actionNetwork = SimpleSequentialDQN(10, 64, 8)
-    val targetNetwork = SimpleSequentialDQN(10, 64, 8)
+    val actionNetwork = SimpleSequentialDQN(10, 64, ActionSpace.all.size)
+    val targetNetwork = SimpleSequentialDQN(10, 64, ActionSpace.all.size)
     val model = models(iteration)
     actionNetwork.load_state_dict(model.state_dict())
     targetNetwork.load_state_dict(model.state_dict())

@@ -19,17 +19,18 @@ class StateEvaluationStrategy[T, P <: Position[P]](actualState: Boolean) extends
         .toList
         .sortBy(neigh => environment.getDistanceBetweenNodes(node, neigh))
         .take(ExperimentParams.neighbors)
-        .map(neigh => toPosition2D(neigh, environment))
-      val selfPosition = toPosition2D(node, environment)
+        .map(neigh => toPosition2D(node, neigh, environment))
+      val selfPosition = toPosition2D(node, node, environment)
       val state = FlockState(selfPosition, positions)
       val encodedState = FlockState.stateEncoder.encode(state)
       storeState(node, state, encodedState)
     }
   }
 
-  private def toPosition2D(node: Node[T], environment: Environment[T, P]): (Double, Double) = {
+  private def toPosition2D(center: Node[T], node: Node[T], environment: Environment[T, P]): (Double, Double) = {
+    val centerPosition = environment.getPosition(center)
     val position = environment.getPosition(node)
-    (position.getCoordinate(0), position.getCoordinate(1))
+    (position.getCoordinate(0) - centerPosition.getCoordinate(0), position.getCoordinate(1) - centerPosition.getCoordinate(1))
   }
 
   private def storeState(node: Node[T], state: FlockState, encodedState: Seq[Double]): Unit = {
