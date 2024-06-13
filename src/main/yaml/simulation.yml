@@ -3,7 +3,7 @@ incarnation: scafi
 variables:
   seed: &seed
     min: 0
-    max: 0
+    max: 5
     step: 1
     default: 0
   spacing: &spacing
@@ -21,12 +21,16 @@ seeds:
   simulation: *seed
 
 network-model:
-  type: ConnectWithinDistance
-  parameters: [3]
+  type: ClosestN
+  parameters: [5]
 
-monitors:
-  - type: SwingGUI
-    parameters: { graphics: effects/simulation.json }
+#network-model:
+#  type: ConnectWithinDistance
+#  parameters: [3]
+
+#monitors:
+#  - type: SwingGUI
+#    parameters: { graphics: effects/simulation.json }
 
 environment:
   type: Continuous2DEnvironment
