@@ -182,17 +182,24 @@ class LearningLauncher(
 
     val losses: mutable.Map[Int, List[Double]] = mutable.Map.empty
 
-    simulationsExperience
-      .zipWithIndex
+    simulationsExperience.zipWithIndex
       .foreach { case (buffer, index) =>
         val iterations = 100 //Math.floor(buffer.size / miniBatchSize).toInt
         Range.inclusive(1, iterations).foreach { iter =>
           val (actualStateBatch, actionBatch, rewardBatch, nextStateBatch) = toBatches(buffer.sample(miniBatchSize))
-          val stateActionValue =
-            actionNetwork(torch.tensor(actualStateBatch)).gather(1, actionBatch.view(miniBatchSize, 1))
+          val networkPass =
+            actionNetwork(torch.tensor(actualStateBatch))
+          val stateActionValue = networkPass.gather(1, actionBatch.view(miniBatchSize, 1))
           val nextStateValues = targetNetwork(torch.tensor(nextStateBatch)).max(1).bracketAccess(0).detach()
           val expectedValue = (nextStateValues * gamma) + rewardBatch
           val criterion = torch.nn.SmoothL1Loss()
+          val logsumexp = torch.logsumexp(networkPass, 1)
+          println(logsumexp.shape)
+          println(networkPass.shape)
+          println(stateActionValue.shape)
+          println(actionBatch.shape)
+          val selected = logsumexp.gather(1, actionBatch.view(1, miniBatchSize))
+          val cqlLoss = (logsumexp - selected).mean()
           val loss = criterion(stateActionValue, expectedValue.unsqueeze(1))
 
           losses.get(index) match {
@@ -200,8 +207,10 @@ class LearningLauncher(
             case None => losses.addOne(index -> List(loss.item().as[Double]))
           }
 
+          val totalLoss = loss + (cqlLoss * 0.5)
+
           optimizer.zero_grad()
-          loss.backward()
+          totalLoss.backward()
           torch.nn.utils.clip_grad_value_(actionNetwork.parameters(), 1.0)
           optimizer.step()
           if (iter % targetNetworkUpdateRate == 0) {
@@ -216,7 +225,7 @@ class LearningLauncher(
 
   private def logCsv(losses: mutable.Map[Int, List[Double]], iteration: Int): Unit = {
     val pd = py.module("pandas")
-    val dataframe = pd.DataFrame(columns=List("time").toPythonProxy)
+    val dataframe = pd.DataFrame(columns = List("time").toPythonProxy)
     losses.keys.foreach { k =>
       val values = losses(k).toPythonProxy
       dataframe.insert(1, s"Simulation-$k", values)
