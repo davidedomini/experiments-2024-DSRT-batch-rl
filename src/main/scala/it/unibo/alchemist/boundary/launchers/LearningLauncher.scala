@@ -164,7 +164,7 @@ class LearningLauncher(
         .map(_.getConcentration(new SimpleMolecule(Molecules.experience)))
         .map(_.asInstanceOf[ExperienceBuffer[State]])
         .map(_.getAll)
-        .foldLeft(ExperienceBuffer[State](100000)) { (buffer, experience) =>
+        .foldLeft(ExperienceBuffer[State](400000)) { (buffer, experience) =>
           buffer.addAll(experience)
           buffer
         }
@@ -179,8 +179,12 @@ class LearningLauncher(
     println(s"Loading nn Iteration $iteration")
     val (actionNetwork, targetNetwork) = loadNetworks(iteration)
     val optimizer = torch.optim.RMSprop(actionNetwork.parameters(), learningRate)
+
+    val losses: mutable.Map[Int, List[Double]] = mutable.Map.empty
+
     simulationsExperience
-      .foreach { buffer =>
+      .zipWithIndex
+      .foreach { case (buffer, index) =>
         val iterations = 100 //Math.floor(buffer.size / miniBatchSize).toInt
         Range.inclusive(1, iterations).foreach { iter =>
           val (actualStateBatch, actionBatch, rewardBatch, nextStateBatch) = toBatches(buffer.sample(miniBatchSize))
@@ -190,6 +194,12 @@ class LearningLauncher(
           val expectedValue = (nextStateValues * gamma) + rewardBatch
           val criterion = torch.nn.SmoothL1Loss()
           val loss = criterion(stateActionValue, expectedValue.unsqueeze(1))
+
+          losses.get(index) match {
+            case Some(l) => losses.update(index, l :+ loss.item().as[Double])
+            case None => losses.addOne(index -> List(loss.item().as[Double]))
+          }
+
           optimizer.zero_grad()
           loss.backward()
           torch.nn.utils.clip_grad_value_(actionNetwork.parameters(), 1.0)
@@ -199,7 +209,19 @@ class LearningLauncher(
           }
         }
       }
+
+    logCsv(losses, iteration)
     models = models :+ actionNetwork
+  }
+
+  private def logCsv(losses: mutable.Map[Int, List[Double]], iteration: Int): Unit = {
+    val pd = py.module("pandas")
+    val dataframe = pd.DataFrame(columns=List("time").toPythonProxy)
+    losses.keys.foreach { k =>
+      val values = losses(k).toPythonProxy
+      dataframe.insert(1, s"Simulation-$k", values)
+    }
+    dataframe.to_csv(s"data/losses-iter-$iteration.csv")
   }
 
   private def loadNetworks(iteration: Int): (py.Dynamic, py.Dynamic) = {
