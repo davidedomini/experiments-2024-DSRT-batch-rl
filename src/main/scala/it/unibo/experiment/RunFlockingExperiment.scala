@@ -17,9 +17,10 @@ object RunFlockingExperiment extends App {
     strategies,
     "src/main/yaml/simulation.yml",
     List("seed"),
-    10,
-    64,
-    "seed"
+    globalRounds = 20,
+    parallelism = 1,
+    miniBatchSize = 64,
+    seedName = "seed"
   )
 
   learner.startLearning()

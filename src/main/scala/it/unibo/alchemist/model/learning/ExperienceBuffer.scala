@@ -4,17 +4,13 @@ import collection.mutable.ArrayDeque
 import scala.collection.mutable
 import scala.util.Random
 
-case class Experience[S <: State](
-                       actualState: S,
-                       action: Action,
-                       reward: Double,
-                       nextState: S)
-                     (implicit actionEncoder: ActionEncoder,
-                      stateEncoder: StateEncoder[S]) {
+case class Experience[S <: State](actualState: S, action: Action, reward: Double, nextState: S)(implicit
+    actionEncoder: ActionEncoder,
+    stateEncoder: StateEncoder[S]
+) {
 
-  def encode: (Seq[Double], Int, Double, Seq[Double]) = {
+  def encode: (Seq[Double], Int, Double, Seq[Double]) =
     (stateEncoder.encode(actualState), actionEncoder.encode(action), reward, stateEncoder.encode(nextState))
-  }
 
 }
 
@@ -40,9 +36,8 @@ trait ExperienceBuffer[S <: State] {
 }
 
 object ExperienceBuffer {
-  def apply[S <: State](size: Int): ExperienceBuffer[S] = {
+  def apply[S <: State](size: Int): ExperienceBuffer[S] =
     new BoundedQueue(size, 42)
-  }
 
   private class BoundedQueue[S <: State](bufferSize: Int, seed: Int) extends ExperienceBuffer[S] {
 

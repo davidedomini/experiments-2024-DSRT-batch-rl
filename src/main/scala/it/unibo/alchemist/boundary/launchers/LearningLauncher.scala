@@ -7,7 +7,16 @@ import it.unibo.alchemist.model.implementations.reactions.{AbstractGlobalReactio
 import it.unibo.alchemist.model.layers.ModelLayer
 import it.unibo.interop.PythonModules._
 import it.unibo.alchemist.model.{Environment, Layer, Node, Position, Time}
-import it.unibo.alchemist.model.learning.{Action, ExecutionStrategy, Experience, ExperienceBuffer, GlobalExecution, LocalExecution, Molecules, State}
+import it.unibo.alchemist.model.learning.{
+  Action,
+  ExecutionStrategy,
+  Experience,
+  ExperienceBuffer,
+  GlobalExecution,
+  LocalExecution,
+  Molecules,
+  State
+}
 import it.unibo.alchemist.model.molecules.SimpleMolecule
 import it.unibo.alchemist.model.timedistributions.DiracComb
 import it.unibo.alchemist.model.times.DoubleTime
@@ -17,8 +26,10 @@ import it.unibo.interop.PythonModules.pythonUtils
 import me.shadaj.scalapy.py
 import me.shadaj.scalapy.py.{PyQuote, SeqConverters}
 import org.apache.commons.lang3.NotImplementedException
+import org.apache.commons.math3.random.MersenneTwister
 import org.jooq.lambda.fi.lang.CheckedRunnable
 import org.slf4j.{Logger, LoggerFactory}
+
 import java.nio.file.{Files, Paths}
 import scala.jdk.CollectionConverters._
 import java.util.concurrent.{ConcurrentLinkedQueue, Executors, TimeUnit}
@@ -28,21 +39,21 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.util.{Failure, Success}
 
-class LearningLauncher (
-                         val batch: java.util.ArrayList[String],
-                         val autoStart: Boolean,
-                         val showProgress: Boolean,
-                         val globalRounds: Int,
-                         val seedName: String,
-                         val miniBatchSize: Int,
-                         val strategies: List[ExecutionStrategy[Any, Nothing]]
-                       ) extends Launcher {
+class LearningLauncher(
+    val batch: java.util.ArrayList[String],
+    val autoStart: Boolean,
+    val showProgress: Boolean,
+    val globalRounds: Int,
+    val parallelism: Int,
+    val seedName: String,
+    val miniBatchSize: Int,
+    val strategies: List[ExecutionStrategy[Any, Nothing]]
+) extends Launcher {
 
-  private val parallelism: Int = Runtime.getRuntime.availableProcessors()
   private val logger: Logger = LoggerFactory.getLogger(this.getClass.getName)
   private val errorQueue = new ConcurrentLinkedQueue[Throwable]()
   private val executor = Executors.newFixedThreadPool(parallelism)
-  private implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(executor)
+  implicit private val executionContext: ExecutionContext = ExecutionContext.fromExecutor(executor)
   private var models: List[py.Dynamic] = List.empty
 
   override def launch(loader: Loader): Unit = {
@@ -51,20 +62,27 @@ class LearningLauncher (
     initializeNetwork()
     Range.inclusive(1, globalRounds).foreach { iter =>
       logger.info(s"Starting Global Round: $iter")
-      val futures = prod.zipWithIndex.map {
-        case (instance, index) =>
+      logger.info(s"Number of simulations: ${prod.size}")
+      val simulations = prod.zipWithIndex
+        .to(LazyList)
+        .map { case (instance, index) =>
           instance.addOne("globalRound" -> iter)
           val sim = loader.getWith[Any, Nothing](instance.asJava)
-          val seed = instance(seedName).asInstanceOf[Double]
-          scheduleStrategies(strategies, sim)
+          val seed = instance(seedName).asInstanceOf[Double].toLong
+          scheduleStrategies(strategies, seed, sim)
           println(s"${Thread.currentThread().getName}")
-          neuralNetworkInjection(sim, iter-1)
+          neuralNetworkInjection(sim, iter - 1)
           runSimulationAsync(sim, index, instance)
-      }
-      val simulations = Await.result(Future.sequence(futures), Duration.Inf)
-      val experience = collectExperience(simulations)
-      improvePolicy(experience, iter-1)
-      cleanPythonObjects(simulations)
+        }
+        .grouped(parallelism)
+
+      val completedSimulations = simulations.flatMap { batch =>
+        val result = Await.result(Future.sequence(batch), Duration.Inf)
+        result
+      }.toList
+      val experience = collectExperience(completedSimulations)
+      improvePolicy(experience, iter - 1)
+      cleanPythonObjects(completedSimulations)
     }
 
     saveNetworks()
@@ -77,30 +95,35 @@ class LearningLauncher (
   }
 
   private def cartesianProduct(
-    variables: java.util.Map[String, Variable[_]],
-    variablesNames: java.util.List[String]
+      variables: java.util.Map[String, Variable[_]],
+      variablesNames: java.util.List[String]
   ): List[mutable.Map[String, Serializable]] = {
-    val l = variablesNames.stream().map(
-      variable => {
+    val l = variablesNames
+      .stream()
+      .map { variable =>
         val values = variables.get(variable)
         values.stream().map(e => variable -> e).toList
-      }).toList
-    Lists.cartesianProduct(l)
+      }
+      .toList
+    Lists
+      .cartesianProduct(l)
       .stream()
-      .map(e => { mutable.Map.from(e.iterator().asScala.toList) })
-      .iterator().asScala.toList
+      .map(e => mutable.Map.from(e.iterator().asScala.toList))
+      .iterator()
+      .asScala
+      .toList
       .asInstanceOf[List[mutable.Map[String, Serializable]]]
   }
 
   private def runSimulationAsync(
-    simulation: Simulation[Any, Nothing],
-    index: Int,
-    instance: mutable.Map[String, Serializable]
+      simulation: Simulation[Any, Nothing],
+      index: Int,
+      instance: mutable.Map[String, Serializable]
   )(implicit executionContext: ExecutionContext): Future[Simulation[Any, Nothing]] = {
     val future = Future {
       simulation.play()
       simulation.run()
-      simulation.getError.ifPresent { error => throw error }
+      simulation.getError.ifPresent(error => throw error)
       logger.info("Simulation with {} completed successfully", instance)
       simulation
     }
@@ -137,15 +160,13 @@ class LearningLauncher (
   private def collectExperience(simulations: List[Simulation[Any, Nothing]]): Seq[ExperienceBuffer[State]] = {
     simulations.map { simulation =>
       nodes(simulation)
-        .map { _.getConcentration(new SimpleMolecule(Molecules.experience)) }
-        .map { _.asInstanceOf[ExperienceBuffer[State]] }
-        .map { _.getAll }
-        .foldLeft(ExperienceBuffer[State](100000))(
-          (buffer, experience) => {
-            buffer.addAll(experience)
-            buffer
-          }
-        )
+        .map(_.getConcentration(new SimpleMolecule(Molecules.experience)))
+        .map(_.asInstanceOf[ExperienceBuffer[State]])
+        .map(_.getAll)
+        .foldLeft(ExperienceBuffer[State](100000)) { (buffer, experience) =>
+          buffer.addAll(experience)
+          buffer
+        }
     }
   }
 
@@ -162,7 +183,8 @@ class LearningLauncher (
         val iterations = 3 //Math.floor(buffer.size / miniBatchSize).toInt
         Range.inclusive(1, iterations).foreach { iter =>
           val (actualStateBatch, actionBatch, rewardBatch, nextStateBatch) = toBatches(buffer.sample(miniBatchSize))
-          val stateActionValue = actionNetwork(torch.tensor(actualStateBatch)).gather(1, actionBatch.view(miniBatchSize, 1))
+          val stateActionValue =
+            actionNetwork(torch.tensor(actualStateBatch)).gather(1, actionBatch.view(miniBatchSize, 1))
           val nextStateValues = targetNetwork(torch.tensor(nextStateBatch)).max(1).bracketAccess(0).detach()
           val expectedValue = (nextStateValues * gamma) + rewardBatch
           val criterion = torch.nn.SmoothL1Loss()
@@ -171,7 +193,7 @@ class LearningLauncher (
           loss.backward()
           torch.nn.utils.clip_grad_value_(actionNetwork.parameters(), 1.0)
           optimizer.step()
-          if(iter % targetNetworkUpdateRate ==  0) {
+          if (iter % targetNetworkUpdateRate == 0) {
             targetNetwork.load_state_dict(actionNetwork.state_dict())
           }
         }
@@ -188,33 +210,38 @@ class LearningLauncher (
     (actionNetwork, targetNetwork)
   }
 
-  private def toBatches(experience: Seq[Experience[State]]): (py.Dynamic, py.Dynamic, py.Dynamic, py.Dynamic)= {
+  private def toBatches(experience: Seq[Experience[State]]): (py.Dynamic, py.Dynamic, py.Dynamic, py.Dynamic) = {
     val encodedBuffer = experience.map(_.encode)
     val actualStateBatch = torch.tensor(encodedBuffer.map(_._1.toPythonCopy).toPythonCopy)
-    val actionBatch = torch.tensor(encodedBuffer.map(_._2).toPythonCopy, dtype=torch.int64)
+    val actionBatch = torch.tensor(encodedBuffer.map(_._2).toPythonCopy, dtype = torch.int64)
     val rewardBatch = torch.tensor(encodedBuffer.map(_._3).toPythonCopy)
     val nextStateBatch = torch.tensor(encodedBuffer.map(_._4.toPythonCopy).toPythonCopy)
     (actualStateBatch, actionBatch, rewardBatch, nextStateBatch)
   }
 
-  private def nodes(simulation: Simulation[Any, Nothing]): List[Node[Any]] = {
+  private def nodes(simulation: Simulation[Any, Nothing]): List[Node[Any]] =
     simulation.getEnvironment.getNodes.iterator().asScala.toList
-  }
 
-  private def scheduleStrategies(strategies: List[ExecutionStrategy[Any, Nothing]], simulation: Simulation[Any, Nothing]): Unit = {
-    simulation.schedule(() => {
+  private def scheduleStrategies(
+      strategies: List[ExecutionStrategy[Any, Nothing]],
+      seed: Long,
+      simulation: Simulation[Any, Nothing]
+  ): Unit = {
+    simulation.schedule { () =>
+      val random = new MersenneTwister(seed)
       strategies.zipWithIndex.foreach {
         case (strategy: GlobalExecution[Any, Nothing], index) =>
           val rate = (index + 1).toDouble / 10.0
           val timeDistribution = new DiracComb[Any](new DoubleTime(rate), 1)
           val environment = simulation.getEnvironment
-          val reaction = new GlobalReactionStrategyExecutor[Any, Nothing](environment, timeDistribution, strategy)
+          val reaction =
+            new GlobalReactionStrategyExecutor[Any, Nothing](environment, random, timeDistribution, strategy)
           simulation.getEnvironment.addGlobalReaction(reaction)
         case (strategy: LocalExecution[Any, Nothing], index) =>
           throw new NotImplementedException("This feature has not been implemented yet!")
         case _ => throw new UnsupportedOperationException("Strategies can only be local or global!")
       }
-    })
+    }
   }
 
   private def cleanPythonObjects(simulations: List[Simulation[Any, Nothing]]): Unit = {

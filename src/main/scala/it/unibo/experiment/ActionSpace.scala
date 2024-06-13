@@ -15,8 +15,6 @@ object ActionSpace {
 
   def all: Seq[Action] = Seq(North, South, West, East, NorthWest, SouthWest, NorthEast, SouthEast)
 
-  implicit val actionEncoder: ActionEncoder = (action: Action) => {
-    all.indexOf(action)
-  }
+  implicit val actionEncoder: ActionEncoder = (action: Action) => all.indexOf(action)
 
 }

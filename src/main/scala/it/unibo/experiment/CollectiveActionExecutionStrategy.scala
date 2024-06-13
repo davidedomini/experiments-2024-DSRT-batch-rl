@@ -4,12 +4,13 @@ import it.unibo.alchemist.model.{Environment, Node, Position}
 import it.unibo.alchemist.model.learning.{Action, GlobalExecution, Molecules}
 import it.unibo.alchemist.model.molecules.SimpleMolecule
 import it.unibo.experiment.ActionSpace.{East, North, NorthEast, NorthWest, South, SouthEast, SouthWest, West}
+import org.apache.commons.math3.random.RandomGenerator
 
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 
 class CollectiveActionExecutionStrategy[T, P <: Position[P]] extends GlobalExecution[T, P] {
 
-  override def execute(environment: Environment[T, P]): Unit = {
+  override def execute(environment: Environment[T, P], randomGenerator: RandomGenerator): Unit = {
     nodes(environment).foreach { node =>
       val actionID = node.getConcentration(new SimpleMolecule(Molecules.action)).asInstanceOf[Int]
       val action = ActionSpace.all(actionID)

@@ -2,15 +2,18 @@ package it.unibo.alchemist.model.implementations.reactions
 
 import it.unibo.alchemist.model.learning.ExecutionStrategy
 import it.unibo.alchemist.model.{Action, Actionable, Condition, Dependency, Environment, GlobalReaction, Node, Position, Time, TimeDistribution}
+import org.apache.commons.math3.random.RandomGenerator
 import org.danilopianini.util.{ListSet, ListSets}
+
 import java.util
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 
 class GlobalReactionStrategyExecutor[T, P <: Position[P]](
     val environment: Environment[T, P],
+    val randomGenerator: RandomGenerator,
     distribution: TimeDistribution[T],
     strategy: ExecutionStrategy[T, P]
-  ) extends GlobalReaction[T] {
+) extends GlobalReaction[T] {
 
   private val actions: util.List[Action[T]] = util.List.of()
   private val conditions: util.List[Condition[T]] = util.List.of()
@@ -33,13 +36,13 @@ class GlobalReactionStrategyExecutor[T, P <: Position[P]](
   }
 
   private def executeBeforeUpdateDistribution(): Unit =
-    strategy.execute(environment) // TODO - check if correct
+    strategy.execute(environment, randomGenerator) // TODO - check if correct
 
   override def getConditions: util.List[Condition[T]] = conditions
 
   override def getInboundDependencies: ListSet[_ <: Dependency] = ListSets.emptyListSet()
 
-  override def getOutboundDependencies: ListSet[_ <: Dependency] =  ListSets.emptyListSet()
+  override def getOutboundDependencies: ListSet[_ <: Dependency] = ListSets.emptyListSet()
 
   override def getTimeDistribution: TimeDistribution[T] = distribution
 
@@ -58,4 +61,3 @@ class GlobalReactionStrategyExecutor[T, P <: Position[P]](
   def nodes: List[Node[T]] = environment.getNodes.iterator().asScala.toList
 
 }
-
