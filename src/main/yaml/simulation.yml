@@ -53,7 +53,10 @@ export:
       - molecule: Reward
         aggregators: [min, max, mean, variance]
         value-filter: onlyFinite
-
+      - molecule: MeanDistance
+        aggregators: [ min, max, mean, variance ]
+        value-filter: onlyFinite
+        
 terminate:
   type: AfterTime
   parameters: 512

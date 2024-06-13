@@ -9,4 +9,5 @@ object Molecules {
   val encodedNextState = "EncodedNextState"
   val action = "Action"
   val reward = "Reward"
+  val meanDistance = "MeanDistance"
 }

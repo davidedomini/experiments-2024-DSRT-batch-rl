@@ -11,17 +11,20 @@ class RewardEvaluationStrategy[T, P <: Position[P]] extends GlobalExecution[T, P
   override def execute(environment: Environment[T, P]): Unit = {
     nodes(environment).foreach { node =>
       val state = node.getConcentration(new SimpleMolecule(Molecules.nextState)).asInstanceOf[FlockState]
-      val reward = computeReward(state)
+      val (reward, meanDistance) = computeReward(state)
       node.setConcentration(new SimpleMolecule(Molecules.reward), reward.asInstanceOf[T])
+      node.setConcentration(new SimpleMolecule(Molecules.meanDistance), meanDistance.asInstanceOf[T])
     }
   }
 
-  private def computeReward(state: FlockState): Double = {
+  private def computeReward(state: FlockState): (Double, Double) = {
     if(state.neighborsPosition.isEmpty){
-      0.0
+      (0.0, 0.0)
     } else{
       val distances = toDistances(state)
-      cohesion(distances) + collision(distances)
+      val reward = cohesion(distances) + collision(distances)
+      val meanDistance = distances.sum / distances.length
+      (reward, meanDistance)
     }
   }
 
