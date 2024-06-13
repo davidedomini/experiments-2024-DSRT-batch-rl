@@ -12,6 +12,9 @@ variables:
   error: &error
     type: ArbitraryVariable
     parameters: [0.5, [0.1, 0.2]]
+  globalRound: &globalRound
+    type: ArbitraryVariable
+    parameters: [1, [2, 3]]
 
 seeds:
   scenario: *seed
