@@ -53,6 +53,7 @@ class LearningLauncher (
       logger.info(s"Starting Global Round: $iter")
       val futures = prod.zipWithIndex.map {
         case (instance, index) =>
+          instance.addOne("globalRound" -> iter)
           val sim = loader.getWith[Any, Nothing](instance.asJava)
           val seed = instance(seedName).asInstanceOf[Double]
           scheduleStrategies(strategies, sim)
