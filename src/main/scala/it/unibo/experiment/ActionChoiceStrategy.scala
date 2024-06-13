@@ -12,14 +12,13 @@ import scala.util.Random
 
 class ActionChoiceStrategy[T, P <: Position[P]] extends GlobalExecution[T, P]{
 
-
   val random = new Random(42)
 
   override def execute(environment: Environment[T, P]): Unit = {
     val policy = loadNN(environment)
     var actions: List[Int] = List.empty
     val r = random.nextDouble()
-    if(r < 0.1) {
+    if(r < 0.2) {
       actions = nodes(environment).map { n => random.nextInt(8) }
     } else {
       val observations = nodes(environment)
