@@ -159,7 +159,7 @@ class LearningLauncher (
     val optimizer = torch.optim.RMSprop(actionNetwork.parameters(), learningRate)
     simulationsExperience
       .foreach { buffer =>
-        val iterations = Math.floor(buffer.size / miniBatchSize).toInt
+        val iterations = 3 //Math.floor(buffer.size / miniBatchSize).toInt
         Range.inclusive(1, iterations).foreach { iter =>
           val (actualStateBatch, actionBatch, rewardBatch, nextStateBatch) = toBatches(buffer.sample(miniBatchSize))
           val stateActionValue = actionNetwork(torch.tensor(actualStateBatch)).gather(1, actionBatch.view(miniBatchSize, 1))
