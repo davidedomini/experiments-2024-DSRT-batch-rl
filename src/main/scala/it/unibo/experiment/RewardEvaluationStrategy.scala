@@ -41,7 +41,7 @@ class RewardEvaluationStrategy[T, P <: Position[P]] extends GlobalExecution[T, P
   private def collision(distances: Seq[Double]): Double = {
     val minDistance = distances.min
     if (minDistance < ExperimentParams.targetDistance) {
-      2 * math.log(minDistance / ExperimentParams.targetDistance)
+      -(minDistance)//2 * math.log(minDistance / ExperimentParams.targetDistance)
     } else {
       0.0
     }

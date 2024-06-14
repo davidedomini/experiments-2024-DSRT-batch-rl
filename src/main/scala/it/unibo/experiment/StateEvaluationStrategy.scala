@@ -30,7 +30,10 @@ class StateEvaluationStrategy[T, P <: Position[P]](actualState: Boolean) extends
   private def toPosition2D(center: Node[T], node: Node[T], environment: Environment[T, P]): (Double, Double) = {
     val centerPosition = environment.getPosition(center)
     val position = environment.getPosition(node)
-    (position.getCoordinate(0) - centerPosition.getCoordinate(0), position.getCoordinate(1) - centerPosition.getCoordinate(1))
+    (
+      centerPosition.getCoordinate(0) - position.getCoordinate(0),
+      centerPosition.getCoordinate(1) - position.getCoordinate(1)
+    )
   }
 
   private def storeState(node: Node[T], state: FlockState, encodedState: Seq[Double]): Unit = {

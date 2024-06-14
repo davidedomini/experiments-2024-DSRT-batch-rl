@@ -3,7 +3,7 @@ package it.unibo.experiment
 import it.unibo.alchemist.model.{Environment, Node, Position}
 import it.unibo.alchemist.model.learning.{Action, GlobalExecution, Molecules}
 import it.unibo.alchemist.model.molecules.SimpleMolecule
-import it.unibo.experiment.ActionSpace.{East, North, NorthEast, NorthWest, South, SouthEast, SouthWest, Stay, West}
+import it.unibo.experiment.ActionSpace.{East, North, NorthEast, NorthWest, South, SouthEast, SouthWest, West}
 import org.apache.commons.math3.random.RandomGenerator
 
 import scala.jdk.CollectionConverters.IteratorHasAsScala
@@ -38,8 +38,6 @@ class CollectiveActionExecutionStrategy[T, P <: Position[P]] extends GlobalExecu
           environment.getPosition(node).plus(Array(-ExperimentParams.deltaMovement, ExperimentParams.deltaMovement))
         case SouthWest =>
           environment.getPosition(node).plus(Array(-ExperimentParams.deltaMovement, -ExperimentParams.deltaMovement))
-        case Stay =>
-          environment.getPosition(node)
       }
     } else {
       environment.getPosition(node)

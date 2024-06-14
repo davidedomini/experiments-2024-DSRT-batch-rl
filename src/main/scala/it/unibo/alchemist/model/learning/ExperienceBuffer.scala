@@ -40,7 +40,7 @@ object ExperienceBuffer {
     new BoundedQueue(size, 42)
 
   private class BoundedQueue[S <: State](bufferSize: Int, seed: Int) extends ExperienceBuffer[S] {
-
+    val random = new Random(seed)
     private var queue: ArrayDeque[Experience[S]] = ArrayDeque.empty
 
     override def reset(): Unit = queue = ArrayDeque.empty[Experience[S]]
@@ -49,7 +49,7 @@ object ExperienceBuffer {
       queue = (queue :+ experience).takeRight(bufferSize)
 
     override def sample(batchSize: Int): Seq[Experience[S]] =
-      new Random(seed).shuffle(queue).take(batchSize).toSeq
+      random.shuffle(queue).take(batchSize).toSeq
 
     override def getAll: Seq[Experience[S]] = queue.toSeq
 

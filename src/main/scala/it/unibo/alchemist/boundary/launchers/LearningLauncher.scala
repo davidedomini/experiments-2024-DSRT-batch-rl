@@ -55,11 +55,15 @@ class LearningLauncher(
   private val executor = Executors.newFixedThreadPool(parallelism)
   implicit private val executionContext: ExecutionContext = ExecutionContext.fromExecutor(executor)
   private var models: List[py.Dynamic] = List.empty
+  private var targets: List[py.Dynamic] = List.empty
 
   override def launch(loader: Loader): Unit = {
+    torch.manual_seed(42)
     val instances = loader.getVariables
     val prod = cartesianProduct(instances, batch)
     initializeNetwork()
+
+    val experiences = List.fill(prod.size)(ExperienceBuffer[State](4000000))
     Range.inclusive(1, globalRounds).foreach { iter =>
       logger.info(s"Starting Global Round: $iter")
       logger.info(s"Number of simulations: ${prod.size}")
@@ -80,8 +84,9 @@ class LearningLauncher(
         val result = Await.result(Future.sequence(batch), Duration.Inf)
         result
       }.toList
-      val experience = collectExperience(completedSimulations)
-      improvePolicy(experience, iter - 1)
+      val currentExperiences = collectExperience(completedSimulations)
+      experiences.zip(currentExperiences).foreach { case (old, newest) => old.addAll(newest.getAll) }
+      improvePolicy(experiences, iter - 1)
       cleanPythonObjects(completedSimulations)
       strategies.foreach(_.progressRound)
     }
@@ -121,6 +126,7 @@ class LearningLauncher(
       index: Int,
       instance: mutable.Map[String, Serializable]
   )(implicit executionContext: ExecutionContext): Future[Simulation[Any, Nothing]] = {
+
     val future = Future {
       simulation.play()
       simulation.run()
@@ -146,8 +152,9 @@ class LearningLauncher(
   }
 
   private def initializeNetwork(): Unit = {
-    val network = SimpleSequentialDQN(10, 64, ActionSpace.all.size)
+    val network = SimpleSequentialDQN(10, 256, ActionSpace.all.size)
     models = models :+ network
+    targets = targets :+ network
   }
 
   private def saveNetworks(): Unit = {
@@ -171,56 +178,53 @@ class LearningLauncher(
     }
   }
 
-  private val targetNetworkUpdateRate = 50 // TODO - refactor
+  private val targetNetworkUpdateRate = 4 // TODO - refactor
   private val gamma = 0.9
-  private val learningRate = 0.005
+  private val learningRate = 0.0005
+  var ticks = 0
   private def improvePolicy(simulationsExperience: Seq[ExperienceBuffer[State]], iteration: Int): Unit = {
     // TODO - maybe this should be customizable with strategy or something similar
     println(s"Loading nn Iteration $iteration")
     val (actionNetwork, targetNetwork) = loadNetworks(iteration)
-    val optimizer = torch.optim.RMSprop(actionNetwork.parameters(), learningRate)
-
+    val optimizer = torch.optim.Adam(actionNetwork.parameters(), learningRate)
     val losses: mutable.Map[Int, List[Double]] = mutable.Map.empty
+    val allSize = simulationsExperience.map(_.getAll.size).sum
+    val mergedBuffer = simulationsExperience.foldLeft(ExperienceBuffer[State](allSize)) { (buffer, experience) =>
+      buffer.addAll(experience.getAll)
+      buffer
+    }
+    val iterations = 300
+    Range.inclusive(1, iterations).foreach { iter =>
+      ticks += 1
+      val (actualStateBatch, actionBatch, rewardBatch, nextStateBatch) = toBatches(mergedBuffer.sample(miniBatchSize))
+      val networkPass =
+        actionNetwork(torch.tensor(actualStateBatch))
+      val stateActionValue = networkPass.gather(1, actionBatch.view(miniBatchSize, 1))
+      val nextStateValues = targetNetwork(torch.tensor(nextStateBatch)).max(1).bracketAccess(0).detach()
+      val expectedValue = ((nextStateValues * gamma) + rewardBatch).detach()
+      val criterion = torch.nn.SmoothL1Loss()
+      val logsumexp = torch.logsumexp(networkPass, 1, keepdim = true)
+      val cqlLoss = (logsumexp - stateActionValue).mean()
+      val loss = criterion(stateActionValue, expectedValue.unsqueeze(1))
 
-    simulationsExperience.zipWithIndex
-      .foreach { case (buffer, index) =>
-        val iterations = 100 //Math.floor(buffer.size / miniBatchSize).toInt
-        Range.inclusive(1, iterations).foreach { iter =>
-          val (actualStateBatch, actionBatch, rewardBatch, nextStateBatch) = toBatches(buffer.sample(miniBatchSize))
-          val networkPass =
-            actionNetwork(torch.tensor(actualStateBatch))
-          val stateActionValue = networkPass.gather(1, actionBatch.view(miniBatchSize, 1))
-          val nextStateValues = targetNetwork(torch.tensor(nextStateBatch)).max(1).bracketAccess(0).detach()
-          val expectedValue = (nextStateValues * gamma) + rewardBatch
-          val criterion = torch.nn.SmoothL1Loss()
-          val logsumexp = torch.logsumexp(networkPass, 1)
-          println(logsumexp.shape)
-          println(networkPass.shape)
-          println(stateActionValue.shape)
-          println(actionBatch.shape)
-          val selected = logsumexp.gather(1, actionBatch.view(1, miniBatchSize))
-          val cqlLoss = (logsumexp - selected).mean()
-          val loss = criterion(stateActionValue, expectedValue.unsqueeze(1))
-
-          losses.get(index) match {
-            case Some(l) => losses.update(index, l :+ loss.item().as[Double])
-            case None => losses.addOne(index -> List(loss.item().as[Double]))
-          }
-
-          val totalLoss = loss + (cqlLoss * 0.5)
-
-          optimizer.zero_grad()
-          totalLoss.backward()
-          torch.nn.utils.clip_grad_value_(actionNetwork.parameters(), 1.0)
-          optimizer.step()
-          if (iter % targetNetworkUpdateRate == 0) {
-            targetNetwork.load_state_dict(actionNetwork.state_dict())
-          }
-        }
+      val totalLoss = loss //+ (cqlLoss * 0.5)
+      losses.get(0) match {
+        case Some(l) => losses.update(0, l :+ totalLoss.item().as[Double])
+        case None => losses.addOne(0 -> List(totalLoss.item().as[Double]))
       }
 
-    logCsv(losses, iteration)
-    models = models :+ actionNetwork
+      optimizer.zero_grad()
+      totalLoss.backward()
+      torch.nn.utils.clip_grad_value_(actionNetwork.parameters(), 1.0)
+      optimizer.step()
+      if (ticks % targetNetworkUpdateRate == 0) {
+        targetNetwork.load_state_dict(actionNetwork.state_dict())
+      }
+
+      logCsv(losses, iteration)
+      models = models :+ actionNetwork
+      targets = targets :+ targetNetwork
+    }
   }
 
   private def logCsv(losses: mutable.Map[Int, List[Double]], iteration: Int): Unit = {
@@ -234,11 +238,12 @@ class LearningLauncher(
   }
 
   private def loadNetworks(iteration: Int): (py.Dynamic, py.Dynamic) = {
-    val actionNetwork = SimpleSequentialDQN(10, 64, ActionSpace.all.size)
-    val targetNetwork = SimpleSequentialDQN(10, 64, ActionSpace.all.size)
+    val actionNetwork = SimpleSequentialDQN(10, 256, ActionSpace.all.size)
+    val targetNetwork = SimpleSequentialDQN(10, 256, ActionSpace.all.size)
     val model = models(iteration)
+    val target = targets(iteration)
     actionNetwork.load_state_dict(model.state_dict())
-    targetNetwork.load_state_dict(model.state_dict())
+    targetNetwork.load_state_dict(target.state_dict())
     (actionNetwork, targetNetwork)
   }
 
