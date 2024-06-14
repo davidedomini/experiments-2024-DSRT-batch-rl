@@ -12,11 +12,12 @@ import org.apache.commons.math3.random.RandomGenerator
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.util.Random
 
-class ActionChoiceStrategy[T, P <: Position[P]] extends GlobalExecution[T, P] {
-  var epsilon = 0.9
+class ActionChoiceStrategy[T, P <: Position[P]](initialEpsilon: Double, decayFactor: Double)
+    extends GlobalExecution[T, P] {
+  var epsilon = initialEpsilon
 
   override def progressRound(): Unit = {
-    epsilon -= 0.1
+    epsilon -= decayFactor
     super.progressRound()
   }
   override def execute(environment: Environment[T, P], random: RandomGenerator): Unit = {

@@ -1,8 +1,10 @@
 package it.unibo.alchemist.model.learning
 
-import it.unibo.alchemist.boundary.launchers.LearningLauncher
+import it.unibo.alchemist.boundary.launchers.{DeepQLearningLauncher, SwarMDPBaseLauncher}
+
 import scala.jdk.CollectionConverters.SeqHasAsJava
 import it.unibo.alchemist.boundary.LoadAlchemist
+import it.unibo.alchemist.boundary.launchers.DeepQLearningLauncher.LearningInfo
 
 case class BatchLearning(
     strategies: List[ExecutionStrategy[Any, Nothing]],
@@ -11,22 +13,32 @@ case class BatchLearning(
     globalRounds: Int,
     parallelism: Int,
     miniBatchSize: Int,
-    seedName: String
+    seedName: String,
+    learningInfo: LearningInfo = DeepQLearningLauncher.LearningInfo(),
+    networkFactory: DeepQLearningLauncher.DQNFactory
 ) {
 
   def startLearning(): Unit = {
     val loader = LoadAlchemist.from(simulationConfiguration)
-    val launcher = new LearningLauncher(
+    val launcher = new DeepQLearningLauncher(
       batch = new java.util.ArrayList(batch.asJava),
-      autoStart = false,
-      showProgress = false,
       globalRounds = globalRounds,
       parallelism = parallelism,
       seedName = seedName,
-      miniBatchSize = miniBatchSize,
-      strategies = strategies
+      strategies = strategies,
+      globalSeed = 42,
+      globalBufferSize = 4000000,
+      learningInfo = learningInfo,
+      networkFactory = networkFactory
     )
     launcher.launch(loader)
   }
 
+}
+
+object LearningLauncher {
+  def apply(simulation: String, swarMDPLauncher: SwarMDPBaseLauncher): Unit = {
+    val loader = LoadAlchemist.from(simulation)
+    swarMDPLauncher.launch(loader)
+  }
 }
