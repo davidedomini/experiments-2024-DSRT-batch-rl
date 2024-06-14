@@ -3,7 +3,7 @@ incarnation: scafi
 variables:
   seed: &seed
     min: 0
-    max: 0
+    max: 7
     step: 1
     default: 0
   spacing: &spacing
@@ -49,7 +49,7 @@ deployments:
 export:
   - type: CSVExporter
     parameters:
-      fileNameRoot: "experiment"
+      fileNameRoot: "experiment-par-8"
       interval: 1.0
       exportPath: "data"
     data:

@@ -1,0 +1,66 @@
+incarnation: scafi
+
+variables:
+  seed: &seed
+    min: 0
+    max: 0
+    step: 1
+    default: 0
+  spacing: &spacing
+    type: ArbitraryVariable
+    parameters: [1, [0.25, 0.5]] #0.5 --> 400 nodes, 1 --> 100 nodes
+  error: &error
+    type: ArbitraryVariable
+    parameters: [0.5, [0.1, 0.2]]
+  globalRound: &globalRound
+    type: ArbitraryVariable
+    parameters: [1, [2, 3]]
+
+seeds:
+  scenario: *seed
+  simulation: *seed
+
+#network-model:
+#  type: ClosestN
+#  parameters: [5]
+
+network-model:
+  type: ConnectWithinDistance
+  parameters: [4]
+
+#monitors:
+#  - type: SwingGUI
+#    parameters: { graphics: effects/simulation.json }
+
+environment:
+  type: Continuous2DEnvironment
+  parameters: []
+
+deployments:
+  type: Grid
+  parameters: [-5, -5, 5, 5, *spacing, *spacing, *error, *error]
+  contents:
+    - in:
+        type: Rectangle
+        parameters: [-6, -6, 2, 2]
+      molecule: source
+      concentration: true
+
+export:
+  - type: CSVExporter
+    parameters:
+      fileNameRoot: "experiment-par-1"
+      interval: 1.0
+      exportPath: "data"
+    data:
+      - time
+      - molecule: Reward
+        aggregators: [min, max, mean, variance]
+        value-filter: onlyFinite
+      - molecule: MeanDistance
+        aggregators: [ min, max, mean, variance ]
+        value-filter: onlyFinite
+        
+terminate:
+  type: AfterTime
+  parameters: 200

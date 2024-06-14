@@ -3,6 +3,7 @@ package it.unibo.experiment
 import it.unibo.alchemist.boundary.launchers.DeepQLearningLauncher
 import it.unibo.alchemist.model.learning.{BatchLearning, LearningLauncher}
 
+import java.nio.file.{Files, Paths}
 import scala.jdk.CollectionConverters.IterableHasAsJava
 
 object RunFlockingExperiment extends App {
@@ -30,20 +31,13 @@ object RunFlockingExperiment extends App {
     )
     LearningLauncher(file, learner)
   }
-
-  val time = System.currentTimeMillis()
-  scenarioWith("src/main/yaml/simulation.yml", 1)
-  val computingTime = System.currentTimeMillis() - time
-
-  val time2 = System.currentTimeMillis()
-  scenarioWith("src/main/yaml/simulation2.yml", 2)
-  val computingTime2 = System.currentTimeMillis() - time2
-
-  val time4 = System.currentTimeMillis()
-  scenarioWith("src/main/yaml/simulation4.yml", 4)
-  val computingTime4 = System.currentTimeMillis() - time4
-
-  val content = s"1,$computingTime\n2,$computingTime2\n4,$computingTime4"
-
-  println(content)
+  Files.write(Paths.get("computingTime.csv"), "parallelism,computingTime\n".getBytes)
+  private val parallel = List(1, 2, 4, 8)
+  parallel.foreach { p =>
+    val time = System.currentTimeMillis()
+    scenarioWith(s"src/main/yaml/simulation$p.yml", p)
+    val computingTime = System.currentTimeMillis() - time
+    val content = s"$p,$computingTime\n"
+    Files.write(Paths.get("computingTime.csv"), content.getBytes, java.nio.file.StandardOpenOption.APPEND)
+  }
 }
