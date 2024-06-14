@@ -82,7 +82,6 @@ class DeepQLearningLauncher(
     println(s"Loading nn Iteration $iteration")
     val (actionNetwork, targetNetwork) = loadNetworks(iteration)
     val optimizer = torch.optim.Adam(actionNetwork.parameters(), learningRate)
-    val losses: mutable.Map[Int, List[Double]] = mutable.Map.empty
     val allSize = simulationsExperience.map(_.getAll.size).sum
     val mergedBuffer = simulationsExperience.foldLeft(ExperienceBuffer[State](allSize)) { (buffer, experience) =>
       buffer.addAll(experience.getAll)
