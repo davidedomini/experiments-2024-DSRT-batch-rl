@@ -60,7 +60,18 @@ export:
       - molecule: MeanDistance
         aggregators: [ min, max, mean, variance ]
         value-filter: onlyFinite
-        
+  - type: CSVExporter
+    parameters:
+      fileNameRoot: "positions-2"
+      interval: 1.0
+      exportPath: "data"
+    data:
+      - time
+      - molecule: position-x
+        precision: 4
+      - molecule: position-y
+        precision: 4
+
 terminate:
   type: AfterTime
   parameters: 200

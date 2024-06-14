@@ -21,8 +21,11 @@ class StateEvaluationStrategy[T, P <: Position[P]](actualState: Boolean) extends
         .take(ExperimentParams.neighbors)
         .map(neigh => toPosition2D(node, neigh, environment))
       val selfPosition = toPosition2D(node, node, environment)
+      val myPosition = environment.getPosition(node)
       val state = FlockState(selfPosition, positions)
       val encodedState = FlockState.stateEncoder.encode(state)
+      node.setConcentration(new SimpleMolecule("position-x"), myPosition.getCoordinate(0).asInstanceOf[T])
+      node.setConcentration(new SimpleMolecule("position-y"), myPosition.getCoordinate(1).asInstanceOf[T])
       storeState(node, state, encodedState)
     }
   }

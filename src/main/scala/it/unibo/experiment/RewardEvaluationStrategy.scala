@@ -7,7 +7,8 @@ import org.apache.commons.math3.random.RandomGenerator
 
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 
-class RewardEvaluationStrategy[T, P <: Position[P]] extends GlobalExecution[T, P] {
+class RewardEvaluationStrategy[T, P <: Position[P]](minDistance: Double, maxDistance: Double)
+    extends GlobalExecution[T, P] {
 
   override def execute(environment: Environment[T, P], randomGenerator: RandomGenerator): Unit = {
     nodes(environment).foreach { node =>
@@ -23,28 +24,20 @@ class RewardEvaluationStrategy[T, P <: Position[P]] extends GlobalExecution[T, P
       (0.0, 0.0)
     } else {
       val distances = toDistances(state)
-      val reward = cohesion(distances) + collision(distances)
+      val reward = cohesion(distances) //+ collision(distances)
       val meanDistance = distances.sum / distances.length
       (reward, meanDistance)
     }
   }
 
   private def cohesion(distances: Seq[Double]): Double = {
-    val maxDistance = distances.max
-    if (maxDistance > ExperimentParams.targetDistance) {
-      -(maxDistance - ExperimentParams.targetDistance)
+    val farest = distances.max
+    if (farest > minDistance && farest < maxDistance) {
+      0
     } else {
-      0.0
+      -1
     }
-  }
 
-  private def collision(distances: Seq[Double]): Double = {
-    val minDistance = distances.min
-    if (minDistance < ExperimentParams.targetDistance) {
-      -(minDistance)//2 * math.log(minDistance / ExperimentParams.targetDistance)
-    } else {
-      0.0
-    }
   }
 
   private def toDistances(state: FlockState): Seq[Double] = {

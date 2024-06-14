@@ -87,7 +87,8 @@ class DeepQLearningLauncher(
       buffer.addAll(experience.getAll)
       buffer
     }
-    Range.inclusive(1, learningInfo.iterations).foreach { iter =>
+    val iterations = (mergedBuffer.getAll.size / miniBatchSize) / 5.0
+    Range.inclusive(1, Math.min(iterations.toInt, learningInfo.iterations)).foreach { iter =>
       ticks += 1
       val (actualStateBatch, actionBatch, rewardBatch, nextStateBatch) = toBatches(mergedBuffer.sample(miniBatchSize))
       val networkPass =

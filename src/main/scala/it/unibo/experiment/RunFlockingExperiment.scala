@@ -13,7 +13,7 @@ object RunFlockingExperiment extends App {
     new ActionChoiceStrategy[Any, Nothing](initialEpsilon = 0.9, decayFactor = 0.1),
     new CollectiveActionExecutionStrategy[Any, Nothing],
     new StateEvaluationStrategy[Any, Nothing](false),
-    new RewardEvaluationStrategy[Any, Nothing],
+    new RewardEvaluationStrategy[Any, Nothing](ExperimentParams.minDistance, ExperimentParams.maxDistance),
     new ExperienceCollectionStrategy[Any, Nothing]
   )
 
@@ -26,8 +26,12 @@ object RunFlockingExperiment extends App {
       strategies = strategies,
       globalSeed = 42,
       globalBufferSize = 4000000,
-      learningInfo = DeepQLearningLauncher.LearningInfo(),
-      networkFactory = new DeepQLearningLauncher.DQNFactory(10, 256, ActionSpace.all.size)
+      learningInfo = DeepQLearningLauncher.LearningInfo(gamma = 0.9),
+      networkFactory = new DeepQLearningLauncher.DQNFactory(
+        ExperimentParams.neighbors * ExperimentParams.neighborPositionSize,
+        128,
+        ActionSpace.all.size
+      )
     )
     LearningLauncher(file, learner)
   }
