@@ -3,7 +3,6 @@
 .idea/
 .spyproject/
 build/
-charts/
 data_summary_*
 timeprocessed
 python/dist/
