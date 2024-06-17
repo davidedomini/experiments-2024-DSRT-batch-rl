@@ -48,7 +48,7 @@ def fromFile(file, tostore):
         ## dark color of i
         dark = colors[i]
         dark = [x/1.5 for x in dark]
-        plt.scatter(Xs[198:199][[i]], Ys[198:199][[i+100]], s=20, alpha=1, c=colors[i], edgecolors=dark, linewidths=1)
+        plt.scatter(Xs[198:199][[i]], Ys[198:199][[i+100]], s=40, alpha=1, c=colors[i], edgecolors=dark, linewidths=1)
     #for i in range(0, 10):
     #    plt.scatter(Xs.iloc[i,j], Ys.iloc[i,j], s=2, c=colorMap[j])
     ## get current figure
@@ -64,10 +64,10 @@ files = [
 ]
 
 store = [
-    'charts/1.png',
-    'charts/2.png',
-    'charts/4.png',
-    'charts/8.png'
+    'charts/test-parallel-1.pdf',
+    'charts/test-parallel-2.pdf',
+    'charts/test-parallel-4.pdf',
+    'charts/test-parallel-8.pdf'
 ]
 
 folder_path = 'charts'
