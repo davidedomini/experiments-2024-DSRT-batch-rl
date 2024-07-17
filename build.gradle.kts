@@ -42,6 +42,12 @@ dependencies {
     if (!GraphicsEnvironment.isHeadless()) {
         implementation("it.unibo.alchemist:alchemist-swingui:${libs.versions.alchemist.get()}")
     }
+    // how can i add the system classifier?
+    implementation("ai.djl:api:0.28.0")
+    implementation("ai.djl.pytorch:pytorch-engine:0.28.0")
+    //implementation("ai.djl.pytorch:pytorch-jni:2.2.2-0.28.0")
+    //implementation("ai.djl.pytorch:pytorch-native-cu121:2.2.2:linux-x86_64")
+    // Like this!
 }
 
 develocity {
@@ -178,18 +184,17 @@ File(rootProject.rootDir.path + "/src/main/yaml").listFiles()
             description = "Launches batch experiments for $capitalizedName"
             maxHeapSize = "${minOf(heap.toInt(), Runtime.getRuntime().availableProcessors() * taskSize)}m"
             File("data").mkdirs()
-            /*args("--override",
+            args("--override",
                 """
                 launcher: {
                     parameters: {
-                        batch: [ seed, spacing ],
+                        batch: [ seedSimulation ],
                         showProgress: true,
                         autoStart: true,
                         showProgress: true,
-                        globalRounds: 40,
                     }
                 }
-            """.trimIndent())*/
+            """.trimIndent())
         }
         runAllBatch.dependsOn(batch)
     }

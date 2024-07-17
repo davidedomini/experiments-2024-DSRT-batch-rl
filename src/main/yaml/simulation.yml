@@ -1,0 +1,54 @@
+incarnation: scafi
+
+network-model:
+  type: ConnectWithinDistance
+  parameters: [0.5]
+variables:
+  seedSimulation: &seedSimulation
+      min: 0
+      max: 10
+      step: 1
+      default: 0
+
+seeds:
+  scenario: *seedSimulation
+  simulation: *seedSimulation
+_gradient: &gradient
+  - type: Event
+    time-distribution: 1
+    actions:
+      - type: it.unibo.experiment.SimpleAction
+        parameters: [ ]
+
+deployments:
+  type: Grid
+  parameters: [-5, -5, 5, 5, 0.25, 0.25, 0.1, 0.1]
+  contents:
+    - molecule: simulation
+      concentration: *seedSimulation
+    - in:
+        type: Rectangle
+        parameters: [-6, -6, 2, 2]
+      molecule: source
+      concentration: true
+    - in:
+        type: Rectangle
+        parameters: [4, 4, 6, 6]
+      molecule: destination
+      concentration: true
+  programs: *gradient
+
+terminate:
+  type: AfterTime
+  parameters: 100
+
+export:
+  - type: CSVExporter
+    parameters:
+      fileNameRoot: "simulations"
+      exportPath: "data"
+      fileExtension: "txt"
+      interval: 1.0
+    data:
+      - # the instant in simulated time
+        time

@@ -1,16 +1,15 @@
 package it.unibo.experiment
 
+import ai.djl.Model
+import ai.djl.ndarray.NDList
+import ai.djl.nn.Block
+import ai.djl.translate.NoopTranslator
 import it.unibo.alchemist.model.learning.{GlobalExecution, Molecules}
 import it.unibo.alchemist.model.molecules.SimpleMolecule
 import it.unibo.alchemist.model.{Environment, Position}
-import it.unibo.alchemist.util.RandomGenerators
-import it.unibo.interop.PythonModules.torch
-import me.shadaj.scalapy.py
-import me.shadaj.scalapy.py.SeqConverters
 import org.apache.commons.math3.random.RandomGenerator
 
 import scala.jdk.CollectionConverters.IteratorHasAsScala
-import scala.util.Random
 
 class ActionChoiceStrategy[T, P <: Position[P]](initialEpsilon: Double, decayFactor: Double)
     extends GlobalExecution[T, P] {
@@ -24,7 +23,7 @@ class ActionChoiceStrategy[T, P <: Position[P]](initialEpsilon: Double, decayFac
     val policy = loadNN(environment)
     var actions: List[Int] = List.empty
     val r = random.nextDouble()
-
+    val local = DJLContext.localManager()
     if (r < epsilon) {
       actions = nodes(environment).map(n => random.nextInt(ActionSpace.all.size))
     } else {
@@ -32,9 +31,15 @@ class ActionChoiceStrategy[T, P <: Position[P]](initialEpsilon: Double, decayFac
         .map { node =>
           node.getConcentration(new SimpleMolecule(Molecules.encodedActualState)).asInstanceOf[List[Double]]
         }
-      val observationsTensor = torch.Tensor(observations.toPythonProxy)
-      val qValues = policy(observationsTensor)
-      actions = qValues.argmax(dim = 1).tolist().as[List[Int]]
+      val observationsTensor = local.create(observations.map(_.toArray).toArray)
+      val model = Model.newInstance("inference")
+      model.setBlock(policy)
+      val predictor = model.newPredictor(new NoopTranslator())
+      val qValues = predictor.predict(new NDList(observationsTensor))
+      actions = qValues.head().argMax(1).toLongArray.toList.map(_.toInt)
+      model.close()
+      predictor.close()
+      local.close()
     }
     actions.zipWithIndex
       .foreach { case (action, index) =>
@@ -42,10 +47,9 @@ class ActionChoiceStrategy[T, P <: Position[P]](initialEpsilon: Double, decayFac
       }
   }
 
-  private def loadNN(environment: Environment[T, P]): py.Dynamic = {
-    nodes(environment).head.getConcentration(new SimpleMolecule(Molecules.model)).asInstanceOf[py.Dynamic]
+  private def loadNN(environment: Environment[T, P]): Block = {
     val position = environment.getPosition(nodes(environment).head)
-    environment.getLayer(new SimpleMolecule(Molecules.model)).get().getValue(position).asInstanceOf[py.Dynamic]
+    environment.getLayer(new SimpleMolecule(Molecules.model)).get().getValue(position).asInstanceOf[Block]
   }
 
   private def nodes(environment: Environment[T, P]) =

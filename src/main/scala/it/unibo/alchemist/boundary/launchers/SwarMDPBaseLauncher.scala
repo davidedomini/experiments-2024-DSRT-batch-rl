@@ -1,24 +1,19 @@
 package it.unibo.alchemist.boundary.launchers
 
+import ai.djl.nn.Block
 import com.google.common.collect.Lists
 import it.unibo.alchemist.boundary.{Launcher, Loader, Variable}
 import it.unibo.alchemist.core.Simulation
 import it.unibo.alchemist.model.Node
 import it.unibo.alchemist.model.implementations.reactions.GlobalReactionStrategyExecutor
-import it.unibo.alchemist.model.layers.ModelLayer
 import it.unibo.alchemist.model.learning._
 import it.unibo.alchemist.model.molecules.SimpleMolecule
 import it.unibo.alchemist.model.timedistributions.DiracComb
 import it.unibo.alchemist.model.times.DoubleTime
-import it.unibo.experiment.{ActionSpace, SimpleSequentialDQN}
-import it.unibo.interop.PythonModules._
-import me.shadaj.scalapy.py
-import me.shadaj.scalapy.py.SeqConverters
 import org.apache.commons.lang3.NotImplementedException
 import org.apache.commons.math3.random.MersenneTwister
 import org.slf4j.{Logger, LoggerFactory}
 
-import java.nio.file.{Files, Paths}
 import java.util.concurrent.{ConcurrentLinkedQueue, Executors, TimeUnit}
 import scala.collection.mutable
 import scala.concurrent.duration.Duration
@@ -146,7 +141,7 @@ abstract class SwarMDPBaseLauncher(
   }
   protected def improvePolicy(simulationsExperience: Seq[ExperienceBuffer[State]], iteration: Int): Unit
 
-  protected def loadNetworks(iteration: Int): (py.Dynamic, py.Dynamic)
+  protected def loadNetworks(iteration: Int): (Block, Block)
 
   private def nodes(simulation: Simulation[Any, Nothing]): List[Node[Any]] =
     simulation.getEnvironment.getNodes.iterator().asScala.toList
